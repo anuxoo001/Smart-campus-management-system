@@ -24,7 +24,14 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://172.29.') || origin.startsWith('http://10.') || origin.startsWith('http://192.168.')) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.startsWith('http://172.29.') ||
+      origin.startsWith('http://10.') ||
+      origin.startsWith('http://192.168.')
+    ) {
       return callback(null, true);
     }
 
