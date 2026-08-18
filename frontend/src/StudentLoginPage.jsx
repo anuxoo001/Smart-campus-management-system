@@ -168,7 +168,9 @@ function StudentLoginPage() {
               <h2>{step === 'email' ? 'Sign in with Email OTP' : 'Verify OTP'}</h2>
               <p className="auth-subtitle">
                 {step === 'email'
-                  ? `Use your verified test inbox: ${testEmail}`
+                  ? sandboxMode
+                    ? `Use your verified test inbox: ${testEmail}`
+                    : 'Use your registered student email address'
                   : `We've sent an OTP to ${email}`}
               </p>
             </div>
