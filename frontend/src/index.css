@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Inter', sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; min-height: 100%; }
+body { min-height: 100vh; background: linear-gradient(180deg, #f8fafc 0%, #eef5ff 100%); }
+a { text-decoration: none; }
+button, input, select, textarea { font: inherit; }
+
+.container { max-width: 1280px; margin: 0 auto; padding: 0 1rem; }
+.app-shell { min-height: 100vh; display: flex; }
+.sidebar { width: 260px; background: #0f172a; color: white; padding: 1.5rem 1rem; }
+.sidebar a { color: white; }
+.main-panel { flex: 1; padding: 2rem; }
+.card { background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 1.25rem; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05); }
+.grid { display: grid; gap: 1rem; }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.row { display: flex; gap: 1rem; align-items: center; }
+.btn { border: none; border-radius: 10px; padding: 0.8rem 1.1rem; cursor: pointer; font-weight: 600; }
+.btn-primary { background: #2563eb; color: white; }
+.btn-secondary { background: #e2e8f0; color: #0f172a; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 0.8rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.form-group { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1rem; }
+.form-group input, .form-group textarea, .form-group select { border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.8rem 0.9rem; }
+.badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+.badge-success { background: #dcfce7; color: #166534; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+nav a { color: #0f172a; }
+@media (max-width: 960px) {
+  .app-shell { flex-direction: column; }
+  .sidebar { width: 100%; }
+  .main-panel { padding: 1rem; }
+  .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+

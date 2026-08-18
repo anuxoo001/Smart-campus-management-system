@@ -1,0 +1,191 @@
+.login-type-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.login-type-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.login-type-header .brand-mark.large {
+  width: 80px;
+  height: 80px;
+  font-size: 2rem;
+}
+
+.login-type-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  color: #1f2937;
+}
+
+.login-type-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+
+.login-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.login-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 20px;
+  background: white;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.login-type-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
+  transform: translateY(-4px);
+}
+
+.login-type-card.student-card {
+  border-color: #dbeafe;
+}
+
+.login-type-card.student-card:hover {
+  border-color: #2563eb;
+  background: #f0f9ff;
+}
+
+.login-type-card.teacher-card {
+  border-color: #fecaca;
+}
+
+.login-type-card.teacher-card:hover {
+  border-color: #dc2626;
+  background: #fff5f5;
+}
+
+.card-icon {
+  font-size: 4rem;
+  text-align: center;
+}
+
+.login-type-card h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #1f2937;
+}
+
+.login-type-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.card-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.feature .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: bold;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.login-type-card.teacher-card .feature .icon {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.card-action {
+  padding-top: 1rem;
+}
+
+.btn-text {
+  display: inline-block;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.login-type-card.teacher-card .btn-text {
+  color: #dc2626;
+}
+
+.login-type-card:hover .btn-text {
+  gap: 0.5rem;
+}
+
+.login-type-footer {
+  text-align: center;
+  padding: 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.login-type-footer p {
+  margin: 0.5rem 0;
+  color: #6b7280;
+}
+
+.login-type-footer a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-type-footer a:hover {
+  text-decoration: underline;
+}
+
+.help-text {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .login-type-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .login-type-header h1 {
+    font-size: 2rem;
+  }
+
+  .login-type-container {
+    gap: 2rem;
+  }
+}

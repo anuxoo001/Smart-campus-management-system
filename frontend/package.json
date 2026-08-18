@@ -1,0 +1,33 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js",
+    "start": "node server.js",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "preview": "node node_modules/vite/bin/vite.js preview"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.12.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "axios": "^1.19.0",
+    "compression": "^1.8.0",
+    "express": "^5.1.0",
+    "lucide-react": "^1.31.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-hook-form": "^7.85.0",
+    "react-redux": "^9.3.0",
+    "react-router-dom": "^7.18.2",
+    "recharts": "^3.10.1",
+    "resend": "^6.20.0",
+    "sirv": "^3.0.1",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.3"
+  }
+}
