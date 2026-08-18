@@ -77,6 +77,24 @@
   background: #fff5f5;
 }
 
+.login-type-card.admin-card {
+  border-color: #ddd6fe;
+}
+
+.login-type-card.admin-card:hover {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.login-type-card.admin-card .feature .icon {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
+.login-type-card.admin-card .btn-text {
+  color: #7c3aed;
+}
+
 .card-icon {
   font-size: 4rem;
   text-align: center;

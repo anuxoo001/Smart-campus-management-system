@@ -62,6 +62,30 @@ export default function LoginTypeSelector() {
                 <span className="btn-text">Sign in as Teacher →</span>
               </div>
             </Link>
+
+            {/* Admin Login Card */}
+            <Link to="/login/admin" className="login-type-card admin-card">
+              <div className="card-icon">🛡️</div>
+              <h2>Administrator Login</h2>
+              <p>Restricted to campus administration</p>
+              <div className="card-features">
+                <div className="feature">
+                  <span className="icon">✓</span>
+                  <span>Secure admin credentials</span>
+                </div>
+                <div className="feature">
+                  <span className="icon">✓</span>
+                  <span>Create teacher & student accounts</span>
+                </div>
+                <div className="feature">
+                  <span className="icon">✓</span>
+                  <span>Manage users & campus operations</span>
+                </div>
+              </div>
+              <div className="card-action">
+                <span className="btn-text">Sign in as Administrator →</span>
+              </div>
+            </Link>
           </div>
 
           {/* Footer */}

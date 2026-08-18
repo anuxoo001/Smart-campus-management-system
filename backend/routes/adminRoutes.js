@@ -6,6 +6,10 @@ const {
   createUser,
   updateUser,
   deleteUser,
+  resetUserPassword,
+  getFacultyList,
+  getStudentList,
+  getCourses,
   createDepartment,
   getDepartments,
   createCourse,
@@ -29,6 +33,12 @@ router.get('/users', protect, authorize('admin'), getAllUsers);
 router.post('/users/create', protect, authorize('admin'), createUser);
 router.put('/users/:userId', protect, authorize('admin'), updateUser);
 router.delete('/users/:userId', protect, authorize('admin'), deleteUser);
+router.put('/users/:userId/reset-password', protect, authorize('admin'), resetUserPassword);
+
+// Profiles & reference data for admin forms
+router.get('/faculty', protect, authorize('admin'), getFacultyList);
+router.get('/students', protect, authorize('admin'), getStudentList);
+router.get('/courses', protect, authorize('admin'), getCourses);
 
 // Department management
 router.get('/departments', protect, authorize('admin'), getDepartments);

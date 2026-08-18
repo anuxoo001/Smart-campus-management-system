@@ -32,6 +32,8 @@ import api from './services/api';
 import LoginTypeSelector from './LoginTypeSelector';
 import StudentLoginPage from './StudentLoginPage';
 import TeacherLoginPage from './TeacherLoginPage';
+import AdminLoginPage from './AdminLoginPage';
+import AdminDashboard from './AdminDashboard';
 import EnhancedTeacherDashboard from './EnhancedTeacherDashboard';
 import StudentTaskDashboard from './StudentTaskDashboard';
 import TeacherQuizPanel from './TeacherQuizPanel';
@@ -61,6 +63,7 @@ function App() {
           <Route path="/login" element={<LoginTypeSelector />} />
           <Route path="/login/student" element={<StudentLoginPage />} />
           <Route path="/login/teacher" element={<TeacherLoginPage />} />
+          <Route path="/login/admin" element={<AdminLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -303,51 +306,7 @@ function FacultyDirectory() {
 }
 
 function AdminDashboardShell() {
-  const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.auth);
-  const [adminStats, setAdminStats] = useState(null);
-
-  useEffect(() => {
-    api.get('/admin/dashboard')
-      .then((res) => setAdminStats(res.data?.stats || null))
-      .catch(() => setAdminStats(null));
-  }, []);
-
-  const stats = adminStats || {};
-
-  return (
-    <div className="role-dashboard">
-      <div className="role-header">
-        <div>
-          <p className="eyebrow">Administrative overview</p>
-          <h1>Admin Dashboard</h1>
-        </div>
-        <button className="btn btn-secondary" onClick={() => dispatch(logoutUser())}>Logout</button>
-      </div>
-
-      <div className="role-grid">
-        <div className="card role-card">
-          <h3>Welcome, {user?.name || 'Admin'}</h3>
-          <p>Manage users, notices, events, and campus operations in one place.</p>
-        </div>
-        <div className="card role-card">
-          <h3>System Health</h3>
-          <p>Total users: {stats.userCount || '—'}</p>
-          <p>Students: {stats.studentCount || '—'} | Faculty: {stats.facultyCount || '—'}</p>
-          <p>Departments: {stats.departmentCount || '—'} | Courses: {stats.courseCount || '—'}</p>
-          <p>Job applications: {stats.applicationCount || '—'}</p>
-        </div>
-        <div className="card role-card">
-          <h3>Quick Actions</h3>
-          <ul className="list-flat">
-            <li>Create notice</li>
-            <li>Add event</li>
-            <li>View leave requests</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
+  return <AdminDashboard />;
 }
 
 function FacultyDashboardShell() {

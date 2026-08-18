@@ -431,6 +431,10 @@
   justify-content: center;
 }
 
+.auth-panel-brand.admin-brand {
+  background: linear-gradient(160deg, #0f172a 0%, #6d28d9 100%);
+}
+
 .eyebrow-light {
   color: rgba(255, 255, 255, 0.74);
 }
