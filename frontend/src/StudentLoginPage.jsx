@@ -13,7 +13,7 @@ function StudentLoginPage() {
   const [timer, setTimer] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const testEmail = import.meta.env.VITE_TEST_EMAIL || 'anuxoo001@gmail.com';
-  const sandboxMode = import.meta.env.VITE_USE_TEST_EMAIL !== 'false';
+  const sandboxMode = import.meta.env.VITE_USE_TEST_EMAIL === 'true';
 
   useEffect(() => {
     if (sandboxMode) {

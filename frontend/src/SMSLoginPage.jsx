@@ -165,7 +165,7 @@ function SMSLoginPage() {
                     <span className="input-icon">✉️</span>
                   </div>
                   <small className="input-hint">
-                    Sandbox mode is active. Use the verified test email: {testEmail}
+                    Use your registered email address
                   </small>
                 </div>
 
