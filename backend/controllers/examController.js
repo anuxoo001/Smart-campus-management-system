@@ -34,6 +34,13 @@ const createExam = async (req, res, next) => {
   try {
     const { faculty, subject, title, description, examDate, startTime, endTime, duration, totalMarks, room, semester, examType, syllabus } = req.body;
 
+    // Auto-derive semester from the subject if not provided
+    let finalSemester = semester;
+    if (!finalSemester && subject) {
+      const subj = await Subject.findById(subject);
+      finalSemester = subj?.semester;
+    }
+
     const exam = await Exam.create({
       faculty,
       subject,
@@ -45,7 +52,7 @@ const createExam = async (req, res, next) => {
       duration,
       totalMarks,
       room,
-      semester,
+      semester: finalSemester,
       examType,
       syllabus,
     });

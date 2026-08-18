@@ -220,6 +220,26 @@ const getCurrentUser = async (req, res, next) => {
   }
 };
 
+// Update the current user's profile (name, phone)
+const updateProfile = async (req, res, next) => {
+  try {
+    const { name, phone, profileImage } = req.body;
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+    if (profileImage !== undefined) updates.profileImage = profileImage;
+
+    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true }).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Send email OTP for login
  * User enters email and receives a one-time password via email
@@ -431,6 +451,7 @@ module.exports = {
   loginUser,
   logoutUser,
   getCurrentUser,
+  updateProfile,
   sendLoginOTP,
   verifyLoginOTP,
   resendLoginOTP,

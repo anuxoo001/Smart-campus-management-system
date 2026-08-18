@@ -43,6 +43,8 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
   const [showForumPost, setShowForumPost] = useState(false);
   const [showMarksForm, setShowMarksForm] = useState(false);
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [showSubjectForm, setShowSubjectForm] = useState(false);
+  const [allSubjects, setAllSubjects] = useState([]);
 
   // Selected subject for forms / lists
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -123,6 +125,23 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
 
   const subjects = dashboardData?.subjectList || [];
 
+  const fetchAllSubjects = async () => {
+    try {
+      const res = await api.get('/subjects');
+      setAllSubjects(res.data || []);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+    }
+  };
+
+  const getSubjectById = (subjectId) =>
+    allSubjects.find((s) => s._id === subjectId) || subjects.find((s) => s.id === subjectId);
+
+  const getSubjectSemester = (subjectId) => {
+    const found = getSubjectById(subjectId);
+    return found ? Number(found.semester) : null;
+  };
+
   const loadSubjectStudents = async (subjectId) => {
     if (!subjectId) return;
     setSelectedSubject(subjectId);
@@ -140,14 +159,17 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
     const subjectId = form.subject.value;
     const date = form.date.value;
     try {
+      const fac = await getFacultyId();
+      const semester = getSubjectSemester(subjectId) || roster[0]?.semester || 1;
       for (const record of roster) {
         const status = form[`status_${record._id}`]?.value || 'present';
         await api.post('/attendance', {
           student: record._id,
           subject: subjectId,
+          faculty: fac,
           date,
           status,
-          semester: record.semester || 6,
+          semester,
         });
       }
       setShowAttendanceForm(false);
@@ -165,16 +187,19 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
     const subjectId = form.subject.value;
     const examType = form.examType.value;
     try {
+      const fac = await getFacultyId();
+      const semester = getSubjectSemester(subjectId) || roster[0]?.semester || 1;
       for (const record of roster) {
         const marksValue = form[`marks_${record._id}`]?.value;
         if (marksValue === '' || marksValue === undefined) continue;
         await api.post('/marks', {
           student: record._id,
           subject: subjectId,
+          faculty: fac,
           examType,
           marks: Number(marksValue),
           outOf: Number(form[`outof_${record._id}`]?.value || 100),
-          semester: record.semester || 6,
+          semester,
         });
       }
       setShowMarksForm(false);
@@ -237,9 +262,10 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
     const form = e.target;
     try {
       const fac = await getFacultyId();
+      const subjectId = form.subject.value;
       await api.post('/exams', {
         faculty: fac,
-        subject: form.subject.value,
+        subject: subjectId,
         title: form.title.value,
         examDate: form.examDate.value,
         startTime: form.startTime.value,
@@ -248,14 +274,37 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
         totalMarks: Number(form.totalMarks.value),
         examType: form.examType.value,
         room: form.room.value,
-        semester: 6,
+        semester: getSubjectSemester(subjectId),
       });
       setShowExamForm(false);
       alert('Exam scheduled successfully');
       fetchAllData();
+      form.reset();
     } catch (error) {
       console.error('Error creating exam:', error);
-      alert('Failed to create exam');
+      alert(error.response?.data?.message || 'Failed to create exam');
+    }
+  };
+
+  const handleDeleteExam = async (examId) => {
+    if (!window.confirm('Delete this exam?')) return;
+    try {
+      await api.delete(`/exams/${examId}`);
+      alert('Exam deleted successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error deleting exam:', error);
+      alert('Failed to delete exam');
+    }
+  };
+
+  const handleUpdateExamStatus = async (examId, status) => {
+    try {
+      await api.put(`/exams/${examId}/status`, { status });
+      fetchAllData();
+    } catch (error) {
+      console.error('Error updating exam status:', error);
+      alert('Failed to update exam status');
     }
   };
 
@@ -296,6 +345,34 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
     } catch (error) {
       console.error('Error posting announcement:', error);
       alert('Failed to post announcement');
+    }
+  };
+
+  const handleSubjectSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      const fac = await getFacultyId();
+      const firstSubject = subjects[0];
+      await api.post('/subjects', {
+        name: form.name.value,
+        code: form.code.value,
+        department: form.department.value || firstSubject?.departmentId,
+        course: form.course.value || firstSubject?.courseId,
+        semester: Number(form.semester.value),
+        credits: Number(form.credits.value || 4),
+        description: form.description.value,
+        faculty: fac,
+      });
+      setShowSubjectForm(false);
+      alert('Subject created successfully');
+      await getFacultyId();
+      fetchAllData();
+      fetchAllSubjects();
+      form.reset();
+    } catch (error) {
+      console.error('Error creating subject:', error);
+      alert(error.response?.data?.message || 'Failed to create subject');
     }
   };
 
@@ -635,8 +712,52 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
           <div className="exams-section">
             <div className="section-header">
               <h2>🧪 Exam Management</h2>
-              <button className="btn-primary" onClick={() => setShowExamForm(!showExamForm)}>+ Create Exam</button>
+              <div className="section-actions">
+                <button className="btn-secondary" onClick={() => { setShowSubjectForm(!showSubjectForm); fetchAllSubjects(); }}>
+                  {showSubjectForm ? 'Cancel' : '+ Add Subject'}
+                </button>
+                <button className="btn-primary" onClick={() => setShowExamForm(!showExamForm)}>+ Create Exam</button>
+              </div>
             </div>
+            {showSubjectForm && (
+              <form className="form-card" onSubmit={handleSubjectSubmit}>
+                <h3>Add New Subject</h3>
+                <p className="form-hint">Create a subject and it will be assigned to you automatically.</p>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Subject Name</label>
+                    <input type="text" name="name" placeholder="e.g., Operating Systems" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Subject Code</label>
+                    <input type="text" name="code" placeholder="e.g., CS305" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Semester</label>
+                    <select name="semester" required>
+                      <option value="">Select Semester</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                        <option key={sem} value={sem}>Semester {sem}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Credits</label>
+                    <input type="number" name="credits" min="1" max="10" defaultValue="4" />
+                  </div>
+                  <div className="form-group">
+                    <label>Description</label>
+                    <input type="text" name="description" placeholder="Optional description" />
+                  </div>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary">Create Subject</button>
+                  <button type="button" className="btn-secondary" onClick={() => setShowSubjectForm(false)}>Cancel</button>
+                </div>
+              </form>
+            )}
             {showExamForm && (
               <form className="form-card" onSubmit={handleExamSubmit}>
                 <div className="form-group">
@@ -696,8 +817,17 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                     <h4>{item.title}</h4>
                     <span className={`status status-${item.status}`}>{item.status}</span>
                   </div>
-                  <p>Subject: {item.subject?.name} | Date: {new Date(item.examDate).toLocaleDateString()} | Time: {item.startTime} - {item.endTime}</p>
+                  <p>Subject: {item.subject?.name} | Date: {new Date(item.examDate).toLocaleDateString()} | Time: {item.startTime} - {item.endTime} | Semester: {item.semester}</p>
                   <small>Total Marks: {item.totalMarks} | Type: {item.examType} | Room: {item.room || 'TBD'}</small>
+                  <div className="exam-actions">
+                    {item.status === 'scheduled' && (
+                      <>
+                        <button className="btn-secondary small-btn" onClick={() => handleUpdateExamStatus(item._id, 'ongoing')}>Start</button>
+                        <button className="btn-secondary small-btn" onClick={() => handleUpdateExamStatus(item._id, 'completed')}>Mark Completed</button>
+                      </>
+                    )}
+                    <button className="btn-danger small-btn" onClick={() => handleDeleteExam(item._id)}>Delete</button>
+                  </div>
                 </div>
               ))}
             </div>

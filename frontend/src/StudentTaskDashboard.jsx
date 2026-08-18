@@ -5,6 +5,9 @@ export default function StudentTaskDashboard() {
   const [stats, setStats] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [expanded, setExpanded] = useState({});
+  const [submitting, setSubmitting] = useState({});
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchStudentTasks();
@@ -20,6 +23,27 @@ export default function StudentTaskDashboard() {
       setTasks(tasksRes.data);
     } catch (error) {
       console.error('Error fetching student tasks:', error);
+    }
+  };
+
+  const toggleExpand = (taskId) => {
+    setExpanded((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
+  };
+
+  const handleSubmitWork = async (e, taskId) => {
+    e.preventDefault();
+    const fileUrl = e.target.fileUrl.value;
+    if (!fileUrl) return;
+    setSubmitting((prev) => ({ ...prev, [taskId]: true }));
+    try {
+      await api.post('/assignments/submissions', { assignment: taskId, fileUrl });
+      setMessage('Work submitted successfully!');
+      fetchStudentTasks();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to submit work.');
+    } finally {
+      setSubmitting((prev) => ({ ...prev, [taskId]: false }));
+      setTimeout(() => setMessage(''), 5000);
     }
   };
 
@@ -61,6 +85,8 @@ export default function StudentTaskDashboard() {
           <p className="eyebrow">View and manage your assigned tasks</p>
         </div>
       </div>
+
+      {message && <div className="admin-message success">{message}</div>}
 
       {/* Stats Grid */}
       <div className="stat-grid">
@@ -171,17 +197,36 @@ export default function StudentTaskDashboard() {
                 {task.instructions && (
                   <div className="task-instructions">
                     <strong>Instructions:</strong>
-                    <p>{task.instructions.substring(0, 100)}...</p>
+                    <p>{expanded[task._id] ? task.instructions : `${task.instructions.substring(0, 100)}...`}</p>
+                  </div>
+                )}
+
+                {expanded[task._id] && (
+                  <div className="task-details">
+                    <p><strong>Description:</strong> {task.description}</p>
+                    <p><strong>Assigned:</strong> {new Date(task.createdAt).toLocaleDateString()}</p>
+                    <p><strong>Points:</strong> {task.totalPoints}</p>
+                    <form className="submit-work-form" onSubmit={(e) => handleSubmitWork(e, task._id)}>
+                      <div className="form-group">
+                        <label>Work / Submission Link (URL)</label>
+                        <input type="url" name="fileUrl" placeholder="https://link-to-your-work" required />
+                      </div>
+                      <button type="submit" className="btn btn-primary small-btn" disabled={submitting[task._id]}>
+                        {submitting[task._id] ? 'Submitting...' : 'Submit Work'}
+                      </button>
+                    </form>
                   </div>
                 )}
 
                 <div className="task-actions-row">
-                  <button type="button" className="btn btn-primary small-btn">
-                    View Details
+                  <button type="button" className="btn btn-primary small-btn" onClick={() => toggleExpand(task._id)}>
+                    {expanded[task._id] ? 'Hide Details' : 'View Details'}
                   </button>
-                  <button type="button" className="btn btn-secondary small-btn">
-                    Submit Work
-                  </button>
+                  {!expanded[task._id] && (
+                    <button type="button" className="btn btn-secondary small-btn" onClick={() => toggleExpand(task._id)}>
+                      Submit Work
+                    </button>
+                  )}
                 </div>
               </article>
             );

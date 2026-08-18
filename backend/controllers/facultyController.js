@@ -32,7 +32,10 @@ const getFacultyById = async (req, res, next) => {
 const getFacultyDashboard = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const faculty = await Faculty.findOne({ user: userId }).populate('subjects department');
+    const faculty = await Faculty.findOne({ user: userId }).populate({
+      path: 'subjects',
+      populate: [{ path: 'course' }, { path: 'department' }],
+    });
 
     if (!faculty) {
       return res.status(404).json({ message: 'Faculty record not found' });
@@ -71,7 +74,7 @@ const getFacultyDashboard = async (req, res, next) => {
       assignments: assignmentCount,
       pendingSubmissions,
       todaysSchedules,
-      subjectList: subjects.map((s) => ({ id: s._id, name: s.name, code: s.code, semester: s.semester, course: s.course?.name })),
+      subjectList: subjects.map((s) => ({ id: s._id, name: s.name, code: s.code, semester: s.semester, course: s.course?.name, courseId: s.course?._id, departmentId: s.department?._id, department: s.department?.name })),
     });
   } catch (error) {
     next(error);

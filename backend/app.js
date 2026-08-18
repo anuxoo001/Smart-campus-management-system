@@ -78,6 +78,7 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/schedule', require('./routes/scheduleRoutes'));
 app.use('/api/materials', require('./routes/materialRoutes'));
 app.use('/api/exams', require('./routes/examRoutes'));
+app.use('/api/subjects', require('./routes/subjectRoutes'));
 app.use('/api/forum', require('./routes/forumRoutes'));
 
 app.use((req, res) => {

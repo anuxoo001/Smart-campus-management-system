@@ -5,6 +5,7 @@ const {
   loginUser, 
   logoutUser, 
   getCurrentUser, 
+  updateProfile,
   forgotPassword, 
   resetPassword,
   sendLoginOTP,
@@ -30,5 +31,6 @@ router.post('/resend-otp', resendLoginOTP);
 // Protected routes
 router.post('/logout', protect, logoutUser);
 router.get('/me', protect, getCurrentUser);
+router.put('/me', protect, updateProfile);
 
 module.exports = router;

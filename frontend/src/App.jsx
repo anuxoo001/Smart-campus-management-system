@@ -124,6 +124,34 @@ function AuthenticatedApp() {
     return <FacultyDashboardShell />;
   }
 
+  const navigate = useNavigate();
+
+  const handleExport = () => {
+    const lines = [];
+    lines.push('Student Academic Summary');
+    lines.push(`Name,${dashboard?.student?.name || ''}`);
+    lines.push(`CGPA,${dashboard?.student?.cgpa || ''}`);
+    lines.push(`Semester,${dashboard?.student?.semester || ''}`);
+    lines.push(`Attendance %,${dashboard?.attendanceSummary?.percentage || ''}`);
+    lines.push(`Marks Average,${dashboard?.marksAverage || ''}`);
+    lines.push('');
+    lines.push('Attendance Records');
+    lines.push('Date,Status,Subject');
+    (attendance || []).forEach((a) => lines.push(`${a.date ? new Date(a.date).toLocaleDateString() : ''},${a.status || ''},${a.subject?.name || ''}`));
+    lines.push('');
+    lines.push('Marks Records');
+    lines.push('Subject,Exam Type,Marks,Out Of');
+    (marksData || []).forEach((m) => lines.push(`${m.subject?.name || ''},${m.examType || ''},${m.marks || ''},${m.outOf || ''}`));
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student-summary.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -156,8 +184,8 @@ function AuthenticatedApp() {
             <h1>Student Success Platform</h1>
           </div>
           <div className="topbar-actions">
-            <button className="btn btn-secondary">Export</button>
-            <button className="btn btn-primary">New Notice</button>
+            <button className="btn btn-secondary" onClick={handleExport}>Export</button>
+            <button className="btn btn-primary" onClick={() => navigate('/notices')}>Notices</button>
             {isAuthenticated && (
               <button
                 className="btn btn-secondary"
@@ -246,6 +274,160 @@ function StudentsDirectory() {
         )}
       </div>
     </SectionPage>
+  );
+}
+
+function TeacherSubmissionsPage() {
+  const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState('');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/assignments/teacher/assignments'),
+      api.get('/assignments/submissions'),
+    ])
+      .then(([aRes, sRes]) => {
+        setAssignments(aRes.data || []);
+        setSubmissions(sRes.data || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = selected
+    ? submissions.filter((s) => s.assignment?._id === selected || s.assignment === selected)
+    : submissions;
+
+  const handleGrade = async (submissionId, e) => {
+    const score = e.target.value;
+    try {
+      await api.post('/faculty/submissions/grade', { submissionId, score, feedback: '' });
+      setMessage(`Graded submission (${score}).`);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to grade.');
+    }
+    setTimeout(() => setMessage(''), 4000);
+  };
+
+  return (
+    <div className="page-panel">
+      <div className="topbar">
+        <div>
+          <h1>Student Submissions</h1>
+          <p className="eyebrow">Review and grade submitted work</p>
+        </div>
+      </div>
+      {message && <div className="admin-message success">{message}</div>}
+      <div className="card table-card">
+        {loading ? (
+          <p className="empty-message">Loading submissions...</p>
+        ) : (
+          <>
+            <div className="form-group" style={{ maxWidth: 320 }}>
+              <label>Filter by assignment</label>
+              <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+                <option value="">All assignments</option>
+                {assignments.map((a) => (
+                  <option key={a._id} value={a._id}>{a.title}</option>
+                ))}
+              </select>
+            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Assignment</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan="6" className="empty-message">No submissions yet.</td></tr>
+                ) : filtered.map((s) => (
+                  <tr key={s._id}>
+                    <td>{s.student?.user?.name || s.student?.name || 'Student'}</td>
+                    <td>{s.assignment?.title || 'Assignment'}</td>
+                    <td>{s.submittedAt ? new Date(s.submittedAt).toLocaleDateString() : '—'}</td>
+                    <td><span className={`badge ${s.status === 'Graded' ? 'badge-success' : 'badge-warning'}`}>{s.status}</span></td>
+                    <td>{s.score ?? s.marks ?? '—'}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        defaultValue={s.score ?? ''}
+                        placeholder="Score"
+                        style={{ width: 70, marginRight: 8 }}
+                        onBlur={(e) => handleGrade(s._id, e)}
+                      />
+                      <a className="btn btn-secondary small-btn" href={s.fileUrl} target="_blank" rel="noreferrer">View</a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TeacherSettingsPage() {
+  const { user } = useSelector((state) => state.auth);
+  const [message, setMessage] = useState('');
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      const res = await api.put('/auth/me', {
+        name: form.name.value,
+        phone: form.phone.value,
+      });
+      setMessage(`Profile updated successfully.`);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to update profile.');
+    }
+    setTimeout(() => setMessage(''), 4000);
+  };
+
+  return (
+    <div className="page-panel">
+      <div className="topbar">
+        <div>
+          <h1>Settings</h1>
+          <p className="eyebrow">Update your account details</p>
+        </div>
+      </div>
+      {message && <div className="admin-message success">{message}</div>}
+      <form className="card admin-form" onSubmit={handleSave}>
+        <h3>Account Settings</h3>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Full Name</label>
+            <input type="text" name="name" defaultValue={user?.name || ''} required />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" defaultValue={user?.email || ''} disabled />
+          </div>
+          <div className="form-group">
+            <label>Phone</label>
+            <input type="tel" name="phone" defaultValue={user?.phone || ''} />
+          </div>
+        </div>
+        <div className="form-actions">
+          <button type="submit" className="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -419,8 +601,8 @@ function FacultyDashboardShell() {
           <Route path="/teacher/analytics" element={<EnhancedTeacherDashboard initialTab="analytics" />} />
           <Route path="/teacher/leave-requests" element={<EnhancedTeacherDashboard initialTab="leave-requests" />} />
           <Route path="/teacher/quizzes" element={<TeacherQuizPanel />} />
-          <Route path="/teacher/submissions" element={<div className="page-panel"><p className="empty-message">Student submissions view coming soon</p></div>} />
-          <Route path="/teacher/settings" element={<div className="page-panel"><p className="empty-message">Settings page coming soon</p></div>} />
+          <Route path="/teacher/submissions" element={<TeacherSubmissionsPage />} />
+          <Route path="/teacher/settings" element={<TeacherSettingsPage />} />
           <Route path="*" element={<Navigate to="/teacher/dashboard" replace />} />
         </Routes>
       </main>
@@ -784,9 +966,23 @@ function NoticesPage() {
 
 function EventsPage() {
   const { events } = useSelector((state) => state.student);
+  const [registered, setRegistered] = useState({});
+  const [regMessage, setRegMessage] = useState('');
+
+  const handleRegister = async (eventId) => {
+    try {
+      await api.post(`/events/${eventId}/register`);
+      setRegistered((prev) => ({ ...prev, [eventId]: true }));
+      setRegMessage('Successfully registered for the event!');
+    } catch (error) {
+      setRegMessage(error.response?.data?.message || 'Registration failed.');
+    }
+    setTimeout(() => setRegMessage(''), 5000);
+  };
 
   return (
     <SectionPage title="Campus Events" description="Upcoming events and registration">
+      {regMessage && <div className="admin-message success">{regMessage}</div>}
       <div className="event-grid">
         {events.length === 0 ? (
           <div className="card"><p className="empty-message">No upcoming events.</p></div>
@@ -797,7 +993,9 @@ function EventsPage() {
             <p>{new Date(event.date).toLocaleDateString()} at {event.time}</p>
             <p>{event.venue}</p>
             <p className="meta-row">{event.organizer}</p>
-            <button className="btn btn-primary">Register</button>
+            <button className="btn btn-primary" onClick={() => handleRegister(event._id)} disabled={registered[event._id]}>
+              {registered[event._id] ? 'Registered ✓' : 'Register'}
+            </button>
           </article>
         ))}
       </div>
@@ -807,9 +1005,23 @@ function EventsPage() {
 
 function PlacementPage() {
   const { jobs } = useSelector((state) => state.student);
+  const [applied, setApplied] = useState({});
+  const [applyMessage, setApplyMessage] = useState('');
+
+  const handleApply = async (jobId) => {
+    try {
+      await api.post(`/jobs/${jobId}/apply`);
+      setApplied((prev) => ({ ...prev, [jobId]: true }));
+      setApplyMessage('Application submitted successfully!');
+    } catch (error) {
+      setApplyMessage(error.response?.data?.message || 'Application failed.');
+    }
+    setTimeout(() => setApplyMessage(''), 5000);
+  };
 
   return (
     <SectionPage title="Placement Opportunities" description="Jobs and internships for eligible students">
+      {applyMessage && <div className="admin-message success">{applyMessage}</div>}
       <div className="job-list">
         {jobs.length === 0 ? (
           <div className="card"><p className="empty-message">No job openings right now.</p></div>
@@ -826,7 +1038,9 @@ function PlacementPage() {
             </div>
             <p>{(job.requiredSkills || []).join(' • ')}</p>
             <p className="meta-row">Deadline: {new Date(job.applicationDeadline).toLocaleDateString()} | Min CGPA: {job.minCGPA}</p>
-            <button className="btn btn-primary">Apply</button>
+            <button className="btn btn-primary" onClick={() => handleApply(job._id)} disabled={applied[job._id]}>
+              {applied[job._id] ? 'Applied ✓' : 'Apply'}
+            </button>
           </article>
         ))}
       </div>

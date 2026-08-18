@@ -45,7 +45,7 @@ const deleteAssignment = async (req, res, next) => {
 
 const getSubmissions = async (req, res, next) => {
   try {
-    const submissions = await Submission.find().populate('assignment student');
+    const submissions = await Submission.find().populate('assignment').populate({ path: 'student', populate: { path: 'user' } });
     res.json(submissions);
   } catch (error) {
     next(error);
@@ -213,7 +213,37 @@ const closeAssignment = async (req, res, next) => {
 
 const submitAssignment = async (req, res, next) => {
   try {
-    res.status(200).json({ message: 'Assignment submitted.' });
+    const { assignment, fileUrl } = req.body;
+    if (!assignment || !fileUrl) {
+      return res.status(400).json({ message: 'Assignment and file URL are required.' });
+    }
+
+    const student = await Student.findOne({ user: req.user._id });
+    if (!student) {
+      return res.status(404).json({ message: 'Student profile not found.' });
+    }
+
+    const assignmentDoc = await Assignment.findById(assignment);
+    if (!assignmentDoc) {
+      return res.status(404).json({ message: 'Assignment not found.' });
+    }
+
+    let submission = await Submission.findOne({ assignment, student: student._id });
+    if (submission) {
+      submission.fileUrl = fileUrl;
+      submission.status = 'submitted';
+      submission.submittedAt = new Date();
+      await submission.save();
+    } else {
+      submission = await Submission.create({
+        assignment,
+        student: student._id,
+        fileUrl,
+        status: 'submitted',
+      });
+    }
+
+    res.status(201).json(submission);
   } catch (error) {
     next(error);
   }
