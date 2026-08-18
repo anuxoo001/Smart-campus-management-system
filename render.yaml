@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: smart-campus-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: BACKEND_PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_URL
+        value: https://smart-campus-frontend.onrender.com
+      - key: RESEND_FROM_NAME
+        value: Smart Campus
+      - key: RESEND_FROM_EMAIL
+        value: onboarding@resend.dev
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TEST_EMAIL
+        value: anuxoo001@gmail.com
+      - key: USE_TEST_EMAIL
+        value: true
+
+  - type: static
+    name: smart-campus-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://smart-campus-backend.onrender.com/api

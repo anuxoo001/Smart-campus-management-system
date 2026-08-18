@@ -26,23 +26,12 @@ import {
   AreaChart,
 } from 'recharts';
 import './App.css';
-import {
-  attendanceRecords,
-  assignments,
-  dashboardStats,
-  events,
-  jobs,
-  marks,
-  notices,
-  notifications,
-  studentPerformance,
-} from './data/mockData';
 import { fetchCurrentUser, loginUser, logoutUser, registerUser, requestPasswordReset, resetPassword, verifyEmail } from './store/authSlice';
-import { fetchStudentDashboard, fetchNotices, fetchEvents, fetchStudentAttendance, fetchStudentMarks, fetchStudentAssignments } from './store/studentSlice';
+import { fetchStudentDashboard, fetchNotices, fetchEvents, fetchStudentAttendance, fetchStudentMarks, fetchStudentAssignments, fetchStudentProfile, fetchJobs, fetchNotifications } from './store/studentSlice';
+import api from './services/api';
 import LoginTypeSelector from './LoginTypeSelector';
 import StudentLoginPage from './StudentLoginPage';
 import TeacherLoginPage from './TeacherLoginPage';
-import TeacherDashboard from './TeacherDashboard';
 import EnhancedTeacherDashboard from './EnhancedTeacherDashboard';
 import StudentTaskDashboard from './StudentTaskDashboard';
 import TeacherQuizPanel from './TeacherQuizPanel';
@@ -104,6 +93,9 @@ function AuthenticatedApp() {
       dispatch(fetchStudentAttendance());
       dispatch(fetchStudentMarks());
       dispatch(fetchStudentAssignments());
+      dispatch(fetchStudentProfile());
+      dispatch(fetchJobs());
+      dispatch(fetchNotifications());
     }
   }, [isAuthenticated, dispatch, user]);
 
@@ -177,8 +169,8 @@ function AuthenticatedApp() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/my-tasks" element={<StudentTaskDashboard />} />
-          <Route path="/students" element={<SectionPage title="Students" description="Student directory and performance monitoring"><TableList data={dashboardStats} /></SectionPage>} />
-          <Route path="/faculty" element={<SectionPage title="Faculty" description="Faculty workload and subject allocation"><TableList data={dashboardStats} /></SectionPage>} />
+          <Route path="/students" element={<StudentsDirectory />} />
+          <Route path="/faculty" element={<FacultyDirectory />} />
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/marks" element={<MarksPage />} />
           <Route path="/assignments" element={<AssignmentsPage />} />
@@ -195,9 +187,133 @@ function AuthenticatedApp() {
   );
 }
 
+function StudentsDirectory() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/students')
+      .then((res) => setRows(res.data))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const mapped = rows.map((row) => ({
+    id: row._id,
+    name: row.user?.name || '—',
+    studentId: row.studentId,
+    department: row.department?.name || row.department,
+    course: row.course?.name || row.course,
+    semester: row.semester,
+    cgpa: row.cgpa,
+  }));
+
+  return (
+    <SectionPage title="Students" description="Student directory and performance monitoring">
+      <div className="card table-card">
+        {loading ? (
+          <p className="empty-message">Loading students...</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Roll No</th>
+                <th>Department</th>
+                <th>Course</th>
+                <th>Semester</th>
+                <th>CGPA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mapped.length === 0 ? (
+                <tr><td colSpan="6" className="empty-message">No students found.</td></tr>
+              ) : mapped.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{row.studentId}</td>
+                  <td>{row.department}</td>
+                  <td>{row.course}</td>
+                  <td>{row.semester}</td>
+                  <td>{row.cgpa}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </SectionPage>
+  );
+}
+
+function FacultyDirectory() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/faculty')
+      .then((res) => setRows(res.data))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const mapped = rows.map((row) => ({
+    id: row._id,
+    name: row.user?.name || '—',
+    employeeId: row.employeeId,
+    department: row.department?.name || row.department,
+    designation: row.designation,
+    experience: row.experience,
+  }));
+
+  return (
+    <SectionPage title="Faculty" description="Faculty workload and subject allocation">
+      <div className="card table-card">
+        {loading ? (
+          <p className="empty-message">Loading faculty...</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>ID</th>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>Experience</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mapped.length === 0 ? (
+                <tr><td colSpan="5" className="empty-message">No faculty found.</td></tr>
+              ) : mapped.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{row.employeeId}</td>
+                  <td>{row.department}</td>
+                  <td>{row.designation}</td>
+                  <td>{row.experience} yrs</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </SectionPage>
+  );
+}
+
 function AdminDashboardShell() {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const [adminStats, setAdminStats] = useState(null);
+
+  useEffect(() => {
+    api.get('/admin/dashboard')
+      .then((res) => setAdminStats(res.data?.stats || null))
+      .catch(() => setAdminStats(null));
+  }, []);
+
+  const stats = adminStats || {};
 
   return (
     <div className="role-dashboard">
@@ -216,8 +332,10 @@ function AdminDashboardShell() {
         </div>
         <div className="card role-card">
           <h3>System Health</h3>
-          <p>Student engagement rate: 96%</p>
-          <p>Attendance reporting: Live</p>
+          <p>Total users: {stats.userCount || '—'}</p>
+          <p>Students: {stats.studentCount || '—'} | Faculty: {stats.facultyCount || '—'}</p>
+          <p>Departments: {stats.departmentCount || '—'} | Courses: {stats.courseCount || '—'}</p>
+          <p>Job applications: {stats.applicationCount || '—'}</p>
         </div>
         <div className="card role-card">
           <h3>Quick Actions</h3>
@@ -352,47 +470,75 @@ function FacultyDashboardShell() {
 }
 
 function DashboardPage() {
-  const { dashboard } = useSelector((state) => state.student);
+  const { dashboard, attendance, notices, notifications, events } = useSelector((state) => state.student);
+  const { user } = useSelector((state) => state.auth);
+
   const stats = dashboard || {
-    student: { name: 'Loading...', cgpa: '0.0' },
-    attendanceSummary: { percentage: 0 },
+    student: { name: user?.name || 'Student', cgpa: '0.0', semester: '-', course: '-' },
+    attendanceSummary: { percentage: 0, totalClasses: 0, classesAttended: 0 },
     marksAverage: 0,
     pendingAssignments: 0,
     notifications: 0,
     upcomingEvents: 0,
   };
 
-  const smartInsights = [
-    {
+  // Per-subject attendance for chart
+  const subjectAttendance = attendance.reduce((acc, record) => {
+    const name = record.subject?.name || 'Subject';
+    if (!acc[name]) {
+      acc[name] = { subject: name, total: 0, attended: 0 };
+    }
+    acc[name].total += 1;
+    if (record.status !== 'absent') acc[name].attended += 1;
+    return acc;
+  }, {});
+  const attendanceChartData = Object.values(subjectAttendance).map((row) => ({
+    subject: row.subject,
+    percentage: row.total > 0 ? Math.round((row.attended / row.total) * 100) : 0,
+  }));
+
+  const performanceData = [
+    { term: 'Internal', score: stats.marksAverage || 0 },
+    { term: 'Attendance', score: stats.attendanceSummary?.percentage || 0 },
+  ];
+
+  const smartInsights = [];
+  if (stats.attendanceSummary?.percentage < 75) {
+    smartInsights.push({
       title: 'Attendance alert',
-      detail: 'Operating Systems is below 75% - review class participation.',
+      detail: `Your overall attendance is ${stats.attendanceSummary.percentage}%, below the 75% requirement.`,
       action: 'View attendance',
       tone: 'warning',
-    },
-    {
-      title: 'Assignment due soon',
-      detail: 'Database Normalization is due in 3 days.',
-      action: 'Open assignment',
+    });
+  }
+  if (stats.pendingAssignments > 0) {
+    smartInsights.push({
+      title: 'Assignments pending',
+      detail: `You have ${stats.pendingAssignments} assignment(s) not yet submitted.`,
+      action: 'Open assignments',
       tone: 'info',
-    },
-    {
-      title: 'Placement update',
-      detail: 'Microsoft internship shortlist is now live.',
-      action: 'Apply now',
-      tone: 'success',
-    },
-    {
+    });
+  }
+  if (stats.upcomingEvents > 0) {
+    smartInsights.push({
       title: 'Campus event',
-      detail: 'Tech Fest registration closes this weekend.',
+      detail: `${stats.upcomingEvents} upcoming event(s) on campus. Check the events tab.`,
       action: 'Register',
       tone: 'primary',
-    },
-  ];
+    });
+  }
 
   return (
     <>
       <div className="stat-grid">
-        {dashboardStats.map((item) => (
+        {[
+          { label: 'CGPA', value: stats.student?.cgpa || '—', icon: '🎓', trend: 'Overall' },
+          { label: 'Attendance', value: `${stats.attendanceSummary?.percentage || 0}%`, icon: '📅', trend: `${stats.attendanceSummary?.classesAttended || 0}/${stats.attendanceSummary?.totalClasses || 0} classes` },
+          { label: 'Marks Average', value: stats.marksAverage || '—', icon: '📝', trend: 'All subjects' },
+          { label: 'Pending Tasks', value: stats.pendingAssignments || 0, icon: '⏳', trend: 'Action required' },
+          { label: 'Notifications', value: notifications.length || 0, icon: '🔔', trend: 'Inbox' },
+          { label: 'Events', value: events.length || 0, icon: '📣', trend: 'Upcoming' },
+        ].map((item) => (
           <div className="card stat-card" key={item.label}>
             <div className="stat-icon">{item.icon}</div>
             <p>{item.label}</p>
@@ -406,11 +552,11 @@ function DashboardPage() {
         <div className="card chart-card">
           <div className="section-head">
             <h3>Academic Performance</h3>
-            <span>Last 6 terms</span>
+            <span>This semester</span>
           </div>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
-              <AreaChart data={studentPerformance}>
+              <AreaChart data={performanceData}>
                 <defs>
                   <linearGradient id="fillColor" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.7} />
@@ -429,19 +575,23 @@ function DashboardPage() {
 
         <div className="card chart-card">
           <div className="section-head">
-            <h3>Attendance Summary</h3>
-            <span>This month</span>
+            <h3>Attendance by Subject</h3>
+            <span>This semester</span>
           </div>
           <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer>
-              <BarChart data={attendanceRecords}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="subject" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="percentage" fill="#10b981" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {attendanceChartData.length === 0 ? (
+              <p className="empty-message">No attendance records yet.</p>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart data={attendanceChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="subject" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Bar dataKey="percentage" fill="#10b981" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
@@ -450,10 +600,12 @@ function DashboardPage() {
         <div className="card">
           <div className="section-head">
             <h3>Smart Recommendations</h3>
-            <span>AI-assisted guidance</span>
+            <span>Personalized guidance</span>
           </div>
           <div className="insight-list">
-            {smartInsights.map((item) => (
+            {smartInsights.length === 0 ? (
+              <p className="empty-message">You are all caught up. Keep up the good work!</p>
+            ) : smartInsights.map((item) => (
               <div key={item.title} className={`insight-card insight-${item.tone}`}>
                 <div>
                   <strong>{item.title}</strong>
@@ -471,12 +623,12 @@ function DashboardPage() {
             <span>Fast access</span>
           </div>
           <div className="quick-actions">
-            <button className="action-pill">View attendance</button>
-            <button className="action-pill">Submit assignment</button>
-            <button className="action-pill">Check notices</button>
-            <button className="action-pill">Apply for jobs</button>
-            <button className="action-pill">Register for event</button>
-            <button className="action-pill">Open profile</button>
+            <Link to="/attendance" className="action-pill">View attendance</Link>
+            <Link to="/assignments" className="action-pill">Submit assignment</Link>
+            <Link to="/notices" className="action-pill">Check notices</Link>
+            <Link to="/jobs" className="action-pill">Apply for jobs</Link>
+            <Link to="/events" className="action-pill">Register for event</Link>
+            <Link to="/profile" className="action-pill">Open profile</Link>
           </div>
         </div>
       </div>
@@ -485,11 +637,13 @@ function DashboardPage() {
         <div className="card">
           <div className="section-head">
             <h3>Latest Notices</h3>
-            <span>Updated today</span>
+            <span>From campus office</span>
           </div>
           <ul className="list-stack">
-            {notices.slice(0, 3).map((notice) => (
-              <li key={notice.id}>
+            {notices.length === 0 ? (
+              <li className="empty-message">No notices yet.</li>
+            ) : notices.slice(0, 3).map((notice) => (
+              <li key={notice._id}>
                 <strong>{notice.title}</strong>
                 <p>{notice.category}</p>
               </li>
@@ -503,8 +657,10 @@ function DashboardPage() {
             <span>Inbox</span>
           </div>
           <ul className="list-stack">
-            {notifications.slice(0, 4).map((item) => (
-              <li key={item.id}>
+            {notifications.length === 0 ? (
+              <li className="empty-message">No notifications.</li>
+            ) : notifications.slice(0, 4).map((item) => (
+              <li key={item._id}>
                 <strong>{item.title}</strong>
                 <p>{item.message}</p>
               </li>
@@ -517,8 +673,25 @@ function DashboardPage() {
 }
 
 function AttendancePage() {
+  const { attendance } = useSelector((state) => state.student);
+
+  const rows = attendance.reduce((acc, record) => {
+    const name = record.subject?.name || 'Subject';
+    if (!acc[name]) {
+      acc[name] = { subject: name, classes: 0, attended: 0 };
+    }
+    acc[name].classes += 1;
+    if (record.status !== 'absent') acc[name].attended += 1;
+    return acc;
+  }, {});
+
+  const tableRows = Object.values(rows).map((row) => ({
+    ...row,
+    percentage: row.classes > 0 ? Math.round((row.attended / row.classes) * 100) : 0,
+  }));
+
   return (
-    <SectionPage title="Attendance Tracking" description="Monitor class attendance and performance thresholds">
+    <SectionPage title="Attendance Tracking" description="Your class attendance and performance thresholds">
       <div className="card table-card">
         <table className="table">
           <thead>
@@ -531,7 +704,9 @@ function AttendancePage() {
             </tr>
           </thead>
           <tbody>
-            {attendanceRecords.map((row) => (
+            {tableRows.length === 0 ? (
+              <tr><td colSpan="5" className="empty-message">No attendance records yet.</td></tr>
+            ) : tableRows.map((row) => (
               <tr key={row.subject}>
                 <td>{row.subject}</td>
                 <td>{row.classes}</td>
@@ -548,26 +723,43 @@ function AttendancePage() {
 }
 
 function MarksPage() {
+  const { marks } = useSelector((state) => state.student);
+
+  const rows = marks.reduce((acc, record) => {
+    const name = record.subject?.name || 'Subject';
+    if (!acc[name]) {
+      acc[name] = { subject: name, total: 0, count: 0 };
+    }
+    acc[name].total += record.marks || 0;
+    acc[name].count += 1;
+    return acc;
+  }, {});
+
+  const tableRows = Object.values(rows).map((row) => ({
+    ...row,
+    average: row.count > 0 ? Math.round(row.total / row.count) : 0,
+  }));
+
   return (
-    <SectionPage title="Academic Marks" description="Internal, assignment, and semester performance tracking">
+    <SectionPage title="Academic Marks" description="Internal, midterm, and final performance tracking">
       <div className="card table-card">
         <table className="table">
           <thead>
             <tr>
               <th>Subject</th>
-              <th>Internal</th>
-              <th>Assignment</th>
-              <th>Final</th>
+              <th>Exams</th>
+              <th>Total Marks</th>
               <th>Average</th>
             </tr>
           </thead>
           <tbody>
-            {marks.map((row) => (
+            {tableRows.length === 0 ? (
+              <tr><td colSpan="4" className="empty-message">No marks recorded yet.</td></tr>
+            ) : tableRows.map((row) => (
               <tr key={row.subject}>
                 <td>{row.subject}</td>
-                <td>{row.internal}</td>
-                <td>{row.assignment}</td>
-                <td>{row.final}</td>
+                <td>{row.count}</td>
+                <td>{row.total}</td>
                 <td>{row.average}</td>
               </tr>
             ))}
@@ -579,19 +771,24 @@ function MarksPage() {
 }
 
 function AssignmentsPage() {
+  const { assignments } = useSelector((state) => state.student);
+
   return (
-    <SectionPage title="Assignments" description="Submission tracking and review workflow">
+    <SectionPage title="Assignments" description="Your submissions and deadlines">
       <div className="assignment-list">
-        {assignments.map((assignment) => (
-          <article className="card assignment-card" key={assignment.id}>
+        {assignments.length === 0 ? (
+          <div className="card"><p className="empty-message">No assignments assigned yet.</p></div>
+        ) : assignments.map((assignment) => (
+          <article className="card assignment-card" key={assignment._id}>
             <div className="section-head">
               <h3>{assignment.title}</h3>
-              <span className={`badge ${assignment.status === 'Submitted' ? 'badge-success' : 'badge-warning'}`}>{assignment.status}</span>
+              <span className={`badge ${assignment.priority === 'high' ? 'badge-warning' : 'badge-primary'}`}>{assignment.priority}</span>
             </div>
             <p>{assignment.description}</p>
             <div className="meta-row">
-              <span>Subject: {assignment.subject}</span>
-              <span>Deadline: {assignment.deadline}</span>
+              <span>Subject: {assignment.subject?.name || 'Subject'}</span>
+              <span>Deadline: {new Date(assignment.deadline).toLocaleDateString()}</span>
+              <span>Points: {assignment.totalPoints || 100}</span>
             </div>
           </article>
         ))}
@@ -601,19 +798,23 @@ function AssignmentsPage() {
 }
 
 function NoticesPage() {
+  const { notices } = useSelector((state) => state.student);
+
   return (
     <SectionPage title="Notice Board" description="Announcements from admin and faculty">
       <div className="notice-list">
-        {notices.map((notice) => (
-          <article className="card notice-card" key={notice.id}>
+        {notices.length === 0 ? (
+          <div className="card"><p className="empty-message">No notices yet.</p></div>
+        ) : notices.map((notice) => (
+          <article className="card notice-card" key={notice._id}>
             <div className="section-head">
               <h3>{notice.title}</h3>
               <span className="badge badge-primary">{notice.category}</span>
             </div>
             <p>{notice.description}</p>
             <div className="meta-row">
-              <span>{notice.author}</span>
-              <span>{notice.date}</span>
+              <span>{notice.author?.name || 'Campus Office'}</span>
+              <span>{new Date(notice.postedDate || notice.date).toLocaleDateString()}</span>
             </div>
           </article>
         ))}
@@ -623,15 +824,20 @@ function NoticesPage() {
 }
 
 function EventsPage() {
+  const { events } = useSelector((state) => state.student);
+
   return (
-    <SectionPage title="Campus Events" description="Upcomings and registration details">
+    <SectionPage title="Campus Events" description="Upcoming events and registration">
       <div className="event-grid">
-        {events.map((event) => (
-          <article className="card event-card" key={event.id}>
-            <div className="event-banner" style={{ background: event.color }} />
-            <h3>{event.title}</h3>
-            <p>{event.date}</p>
+        {events.length === 0 ? (
+          <div className="card"><p className="empty-message">No upcoming events.</p></div>
+        ) : events.map((event) => (
+          <article className="card event-card" key={event._id}>
+            <div className="event-banner" style={{ background: 'linear-gradient(135deg, #60a5fa, #2563eb)' }} />
+            <h3>{event.name}</h3>
+            <p>{new Date(event.date).toLocaleDateString()} at {event.time}</p>
             <p>{event.venue}</p>
+            <p className="meta-row">{event.organizer}</p>
             <button className="btn btn-primary">Register</button>
           </article>
         ))}
@@ -641,21 +847,26 @@ function EventsPage() {
 }
 
 function PlacementPage() {
+  const { jobs } = useSelector((state) => state.student);
+
   return (
-    <SectionPage title="Placement Opportunities" description="Jobs and internships across departments">
+    <SectionPage title="Placement Opportunities" description="Jobs and internships for eligible students">
       <div className="job-list">
-        {jobs.map((job) => (
-          <article key={job.id} className="card job-card">
+        {jobs.length === 0 ? (
+          <div className="card"><p className="empty-message">No job openings right now.</p></div>
+        ) : jobs.map((job) => (
+          <article key={job._id} className="card job-card">
             <div className="section-head">
               <h3>{job.title}</h3>
               <span className="badge badge-success">{job.type}</span>
             </div>
-            <p>{job.company}</p>
+            <p>{job.company?.name}</p>
             <div className="meta-row">
               <span>{job.location}</span>
-              <span>{job.package}</span>
+              <span>{job.salary}</span>
             </div>
-            <p>{job.skills.join(' • ')}</p>
+            <p>{(job.requiredSkills || []).join(' • ')}</p>
+            <p className="meta-row">Deadline: {new Date(job.applicationDeadline).toLocaleDateString()} | Min CGPA: {job.minCGPA}</p>
             <button className="btn btn-primary">Apply</button>
           </article>
         ))}
@@ -665,22 +876,31 @@ function PlacementPage() {
 }
 
 function ProfilePage() {
+  const { dashboard, profile } = useSelector((state) => state.student);
+  const { user } = useSelector((state) => state.auth);
+  const studentData = profile?.studentData || dashboard?.student || {};
+
   return (
     <SectionPage title="Student Profile" description="Academic records and personal information">
       <div className="profile-grid">
         <div className="card">
           <h3>Profile Summary</h3>
           <ul className="list-flat">
-            <li>Name: Aisha Verma</li>
-            <li>Roll No: CS-18-204</li>
-            <li>Department: Computer Science</li>
-            <li>Semester: 6</li>
+            <li>Name: {user?.name || studentData.name}</li>
+            <li>Roll No: {studentData.studentId}</li>
+            <li>Department: {studentData.department?.name || studentData.department}</li>
+            <li>Course: {studentData.course?.name || studentData.course}</li>
+            <li>Semester: {studentData.semester}</li>
+            <li>CGPA: {studentData.cgpa}</li>
+            <li>Email: {user?.email || profile?.email}</li>
           </ul>
         </div>
         <div className="card">
           <h3>Skills</h3>
           <div className="tag-row">
-            {['React', 'Node.js', 'MongoDB', 'UI/UX', 'DSA'].map((skill) => (
+            {(studentData.skills || []).length === 0 ? (
+              <span className="empty-message">No skills added.</span>
+            ) : studentData.skills.map((skill) => (
               <span key={skill} className="tag">{skill}</span>
             ))}
           </div>
@@ -983,31 +1203,6 @@ function SectionPage({ title, description, children }) {
       </div>
       {children}
     </section>
-  );
-}
-
-function TableList({ data }) {
-  return (
-    <div className="card table-card">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.label}>
-              <td>{row.label}</td>
-              <td>{row.type || 'System'}</td>
-              <td>{row.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

@@ -1,11 +1,13 @@
 const Faculty = require('../models/Faculty');
 const User = require('../models/User');
+const Student = require('../models/Student');
 const Attendance = require('../models/Attendance');
 const Marks = require('../models/Marks');
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const Notice = require('../models/Notice');
 const Subject = require('../models/Subject');
+const Schedule = require('../models/Schedule');
 
 const getFaculty = async (req, res, next) => {
   try {
@@ -31,24 +33,36 @@ const getFacultyDashboard = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const faculty = await Faculty.findOne({ user: userId }).populate('subjects department');
-    
+
     if (!faculty) {
       return res.status(404).json({ message: 'Faculty record not found' });
     }
 
     const subjects = faculty.subjects || [];
-    const studentCount = subjects.length > 0 ? subjects.length * 30 : 0;
+    const subjectIds = subjects.map((s) => s._id);
+
+    // Real student count: students enrolled in the courses this faculty teaches
+    const courses = subjects.map((s) => s.course).filter(Boolean);
+    const Student = require('../models/Student');
+    const studentCount = await Student.countDocuments({ course: { $in: courses } });
+
     const assignmentCount = await Assignment.countDocuments({ faculty: faculty._id });
-    const pendingSubmissions = await Submission.countDocuments({ 
+    const myAssignmentIds = await Assignment.find({ faculty: faculty._id }).select('_id');
+    const pendingSubmissions = await Submission.countDocuments({
       status: { $ne: 'Graded' },
-      assignment: { $in: await Assignment.find({ faculty: faculty._id }).select('_id') }
+      assignment: { $in: myAssignmentIds },
+    });
+    const todaysSchedules = await Schedule.countDocuments({
+      faculty: faculty._id,
+      dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()],
     });
 
     res.status(200).json({
       faculty: {
-        name: faculty.user.name,
+        id: faculty._id,
+        name: faculty.user?.name || req.user.name,
         employeeId: faculty.employeeId,
-        department: faculty.department.name,
+        department: faculty.department?.name,
         designation: faculty.designation,
         experience: faculty.experience,
       },
@@ -56,6 +70,8 @@ const getFacultyDashboard = async (req, res, next) => {
       students: studentCount,
       assignments: assignmentCount,
       pendingSubmissions,
+      todaysSchedules,
+      subjectList: subjects.map((s) => ({ id: s._id, name: s.name, code: s.code, semester: s.semester, course: s.course?.name })),
     });
   } catch (error) {
     next(error);
@@ -113,7 +129,6 @@ const getSubjectStudents = async (req, res, next) => {
     }
 
     // Get all students in the course
-    const Student = require('../models/Student');
     const students = await Student.find({
       course: subject.course,
       semester: { $gte: subject.semester },
@@ -415,8 +430,9 @@ const getPendingLeaveRequests = async (req, res, next) => {
     const { facultyId } = req.params;
 
     const LeaveRequest = require('../models/LeaveRequest');
-    const leaves = await LeaveRequest.find({ status: 'pending' })
-      .populate('student', 'name studentId')
+    const leaves = await LeaveRequest.find({})
+      .populate('student', 'studentId user semester')
+      .populate('student.user', 'name email')
       .sort({ createdAt: -1 });
 
     res.json(leaves);

@@ -23,42 +23,48 @@ const getStudentDashboard = async (req, res, next) => {
 
     // Fetch attendance summary
     const attendance = await Attendance.find({ student: student._id });
+    const totalClasses = attendance.length;
+    const classesAttended = attendance.filter((a) => a.status !== 'absent').length;
     const attendanceSummary = {
-      totalClasses: attendance.reduce((sum, a) => sum + a.totalClasses, 0),
-      classesAttended: attendance.reduce((sum, a) => sum + a.classesAttended, 0),
-      percentage: attendance.length > 0 
-        ? Math.round((attendance.reduce((sum, a) => sum + a.classesAttended, 0) / 
-          attendance.reduce((sum, a) => sum + a.totalClasses, 0)) * 100)
+      totalClasses,
+      classesAttended,
+      percentage: totalClasses > 0
+        ? Math.round((classesAttended / totalClasses) * 100)
         : 0,
     };
 
     // Fetch marks summary
     const marks = await Marks.find({ student: student._id });
     const marksAverage = marks.length > 0
-      ? marks.reduce((sum, m) => sum + (m.internal + m.assignment + m.final), 0) / (marks.length * 3)
+      ? marks.reduce((sum, m) => sum + (m.marks || 0), 0) / marks.length
       : 0;
 
-    // Fetch pending assignments
-    const assignments = await Assignment.find({ 'enrolledStudents': student._id }).limit(5);
+    // Fetch pending assignments (published, not yet submitted)
+    const submissions = await Submission.find({ student: student._id }).distinct('assignment');
+    const pendingAssignments = await Assignment.countDocuments({
+      status: 'published',
+      assignedTo: student._id,
+      _id: { $nin: submissions },
+    });
 
     // Fetch notifications
-    const notifications = await Notification.find({ recipient: userId }).limit(5);
+    const notifications = await Notification.find({ user: userId }).limit(5);
 
     // Fetch upcoming events
     const events = await Event.find({ date: { $gte: new Date() } }).limit(4);
 
     res.status(200).json({
       student: {
-        name: student.user.name,
+        name: student.user?.name || req.user.name,
         studentId: student.studentId,
-        department: student.department.name,
-        course: student.course.name,
+        department: student.department?.name,
+        course: student.course?.name,
         semester: student.semester,
         cgpa: student.cgpa,
       },
       attendanceSummary,
       marksAverage: Math.round(marksAverage),
-      pendingAssignments: assignments.length,
+      pendingAssignments,
       notifications: notifications.length,
       upcomingEvents: events.length,
     });
@@ -136,7 +142,7 @@ const getStudentAssignments = async (req, res, next) => {
     const userId = req.user.id;
     const student = await Student.findOne({ user: userId });
 
-    const assignments = await Assignment.find({ enrolledStudents: student._id })
+    const assignments = await Assignment.find({ assignedTo: student._id })
       .populate('subject faculty', 'name code')
       .sort({ deadline: 1 });
 

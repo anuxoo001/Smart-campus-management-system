@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { studentAPI } from '../services/endpoints';
+import api from '../services/api';
 
 const initialState = {
   dashboard: null,
@@ -9,6 +10,8 @@ const initialState = {
   assignments: [],
   notices: [],
   events: [],
+  jobs: [],
+  notifications: [],
   loading: false,
   error: null,
 };
@@ -97,6 +100,30 @@ export const fetchEvents = createAsyncThunk(
   }
 );
 
+export const fetchJobs = createAsyncThunk(
+  'student/fetchJobs',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/jobs');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch jobs');
+    }
+  }
+);
+
+export const fetchNotifications = createAsyncThunk(
+  'student/fetchNotifications',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/notifications');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch notifications');
+    }
+  }
+);
+
 const studentSlice = createSlice({
   name: 'student',
   initialState,
@@ -151,6 +178,14 @@ const studentSlice = createSlice({
       // Events
       .addCase(fetchEvents.fulfilled, (state, action) => {
         state.events = action.payload;
+      })
+      // Jobs
+      .addCase(fetchJobs.fulfilled, (state, action) => {
+        state.jobs = action.payload;
+      })
+      // Notifications
+      .addCase(fetchNotifications.fulfilled, (state, action) => {
+        state.notifications = action.payload;
       });
   },
 });

@@ -1,22 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import api from './services/api';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './EnhancedTeacherDashboard.css';
+
+const TABS = [
+  { key: 'overview', label: '📊 Overview' },
+  { key: 'attendance', label: '✓ Attendance' },
+  { key: 'marks', label: '📝 Marks' },
+  { key: 'schedule', label: '📅 Schedule' },
+  { key: 'materials', label: '📚 Materials' },
+  { key: 'exams', label: '🧪 Exams' },
+  { key: 'roster', label: '👥 Roster' },
+  { key: 'forum', label: '💬 Forum' },
+  { key: 'announcements', label: '📣 Announcements' },
+  { key: 'analytics', label: '📈 Analytics' },
+  { key: 'leave-requests', label: '✋ Leave Requests' },
+];
+
+const PIE_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#ff4444'];
 
 const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
   const user = useSelector((state) => state.auth.user);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
-  
   // Dashboard state
   const [dashboardData, setDashboardData] = useState(null);
-  const [attendance, setAttendance] = useState([]);
-  const [marks, setMarks] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [exams, setExams] = useState([]);
@@ -24,7 +34,6 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
   const [roster, setRoster] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [analyticsData, setAnalyticsData] = useState(null);
-  const [classAnalytics, setClassAnalytics] = useState(null);
 
   // Form states
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
@@ -35,33 +44,258 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
   const [showMarksForm, setShowMarksForm] = useState(false);
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
 
-  useEffect(() => {
-    fetchAllData();
-  }, [activeTab]);
+  // Selected subject for forms / lists
+  const [selectedSubject, setSelectedSubject] = useState('');
 
-  const fetchAllData = async () => {
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
       if (activeTab === 'overview') {
         const res = await api.get(`/faculty/dashboard/overview`);
         setDashboardData(res.data);
       } else if (activeTab === 'schedule') {
-        const res = await api.get(`/schedule/faculty/${user.id || 'me'}`);
-        setSchedule(res.data || []);
+        const fac = await getFacultyId();
+        if (fac) {
+          const res = await api.get(`/schedule/faculty/${fac}`);
+          setSchedule(res.data || []);
+        }
       } else if (activeTab === 'materials') {
-        const res = await api.get(`/materials/faculty/${user.id || 'me'}`);
-        setMaterials(res.data || []);
+        const fac = await getFacultyId();
+        if (fac) {
+          const res = await api.get(`/materials/faculty/${fac}`);
+          setMaterials(res.data || []);
+        }
       } else if (activeTab === 'exams') {
-        const res = await api.get(`/exams/faculty/${user.id || 'me'}`);
-        setExams(res.data || []);
+        const fac = await getFacultyId();
+        if (fac) {
+          const res = await api.get(`/exams/faculty/${fac}`);
+          setExams(res.data || []);
+        }
       } else if (activeTab === 'leave-requests') {
-        const res = await api.get(`/faculty/${user.id || 'me'}/leave-requests`);
-        setLeaveRequests(res.data || []);
+        const fac = await getFacultyId();
+        if (fac) {
+          const res = await api.get(`/faculty/${fac}/leave-requests`);
+          setLeaveRequests(res.data || []);
+        }
+      } else if (activeTab === 'analytics') {
+        const fac = await getFacultyId();
+        if (fac) {
+          const res = await api.get(`/faculty/${fac}/class-analytics/${selectedSubject}`);
+          setAnalyticsData(res.data);
+        }
+      } else if (activeTab === 'forum') {
+        if (selectedSubject) {
+          const res = await api.get(`/forum/subject/${selectedSubject}`);
+          setForumPosts(res.data || []);
+        }
+      } else if (activeTab === 'roster') {
+        if (selectedSubject) {
+          const res = await api.get(`/faculty/subjects/${selectedSubject}/students`);
+          setRoster(res.data || []);
+        }
       }
     } catch (error) {
       console.error(`Error fetching ${activeTab} data:`, error);
     } finally {
       setLoading(false);
+    }
+  }, [activeTab, selectedSubject]);
+
+  const getFacultyId = async () => {
+    if (dashboardData?.faculty?.id) return dashboardData.faculty.id;
+    try {
+      const res = await api.get('/faculty/dashboard/overview');
+      setDashboardData(res.data);
+      return res.data?.faculty?.id;
+    } catch (error) {
+      console.error('Error fetching faculty id:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  const subjects = dashboardData?.subjectList || [];
+
+  const loadSubjectStudents = async (subjectId) => {
+    if (!subjectId) return;
+    setSelectedSubject(subjectId);
+    try {
+      const res = await api.get(`/faculty/subjects/${subjectId}/students`);
+      setRoster(res.data || []);
+    } catch (error) {
+      console.error('Error loading students:', error);
+    }
+  };
+
+  const handleAttendanceSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const subjectId = form.subject.value;
+    const date = form.date.value;
+    try {
+      for (const record of roster) {
+        const status = form[`status_${record._id}`]?.value || 'present';
+        await api.post('/attendance', {
+          student: record._id,
+          subject: subjectId,
+          date,
+          status,
+          semester: record.semester || 6,
+        });
+      }
+      setShowAttendanceForm(false);
+      alert('Attendance saved successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+      alert('Failed to save attendance');
+    }
+  };
+
+  const handleMarksSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const subjectId = form.subject.value;
+    const examType = form.examType.value;
+    try {
+      for (const record of roster) {
+        const marksValue = form[`marks_${record._id}`]?.value;
+        if (marksValue === '' || marksValue === undefined) continue;
+        await api.post('/marks', {
+          student: record._id,
+          subject: subjectId,
+          examType,
+          marks: Number(marksValue),
+          outOf: Number(form[`outof_${record._id}`]?.value || 100),
+          semester: record.semester || 6,
+        });
+      }
+      setShowMarksForm(false);
+      alert('Marks saved successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error saving marks:', error);
+      alert('Failed to save marks');
+    }
+  };
+
+  const handleScheduleSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      const fac = await getFacultyId();
+      await api.post('/schedule', {
+        faculty: fac,
+        subject: form.subject.value,
+        class: form.className.value,
+        dayOfWeek: form.day.value,
+        startTime: form.startTime.value,
+        endTime: form.endTime.value,
+        room: form.room.value,
+      });
+      setShowScheduleForm(false);
+      alert('Schedule added successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error adding schedule:', error);
+      alert('Failed to add schedule');
+    }
+  };
+
+  const handleMaterialSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      const fac = await getFacultyId();
+      await api.post('/materials', {
+        faculty: fac,
+        subject: form.subject.value,
+        title: form.title.value,
+        description: form.description.value,
+        type: form.type.value,
+        category: form.category.value,
+        fileUrl: form.fileUrl.value,
+      });
+      setShowMaterialForm(false);
+      alert('Material uploaded successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error uploading material:', error);
+      alert('Failed to upload material');
+    }
+  };
+
+  const handleExamSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      const fac = await getFacultyId();
+      await api.post('/exams', {
+        faculty: fac,
+        subject: form.subject.value,
+        title: form.title.value,
+        examDate: form.examDate.value,
+        startTime: form.startTime.value,
+        endTime: form.endTime.value,
+        duration: Number(form.duration.value || 60),
+        totalMarks: Number(form.totalMarks.value),
+        examType: form.examType.value,
+        room: form.room.value,
+        semester: 6,
+      });
+      setShowExamForm(false);
+      alert('Exam scheduled successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error creating exam:', error);
+      alert('Failed to create exam');
+    }
+  };
+
+  const handleForumPost = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      await api.post('/forum', {
+        subject: selectedSubject,
+        author: user?._id || user?.id,
+        title: form.title.value,
+        content: form.content.value,
+        category: form.category.value,
+        isAnnouncement: form.isAnnouncement?.checked || false,
+      });
+      setShowForumPost(false);
+      alert('Post created successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error creating post:', error);
+      alert('Failed to create post');
+    }
+  };
+
+  const handleAnnouncementSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    try {
+      await api.post('/notices', {
+        title: form.title.value,
+        description: form.message.value,
+        category: form.priority.value,
+        author: user?._id || user?.id,
+      });
+      setShowAnnouncementForm(false);
+      alert('Announcement posted successfully');
+      fetchAllData();
+    } catch (error) {
+      console.error('Error posting announcement:', error);
+      alert('Failed to post announcement');
     }
   };
 
@@ -75,6 +309,15 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
       alert('Failed to update leave request');
     }
   };
+
+  const renderSubjectSelect = (name, required = true, onChange) => (
+    <select name={name} required={required} onChange={onChange}>
+      <option value="">Select Subject</option>
+      {subjects.map((subject) => (
+        <option key={subject.id} value={subject.id}>{subject.name} ({subject.code})</option>
+      ))}
+    </select>
+  );
 
   if (loading && !dashboardData && activeTab === 'overview') {
     return <div className="loading">Loading dashboard...</div>;
@@ -92,17 +335,15 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
 
       {/* Navigation Tabs */}
       <div className="dashboard-nav tabs-horizontal">
-        <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>📊 Overview</button>
-        <button className={`tab-btn ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>✓ Attendance</button>
-        <button className={`tab-btn ${activeTab === 'marks' ? 'active' : ''}`} onClick={() => setActiveTab('marks')}>📝 Marks</button>
-        <button className={`tab-btn ${activeTab === 'schedule' ? 'active' : ''}`} onClick={() => setActiveTab('schedule')}>📅 Schedule</button>
-        <button className={`tab-btn ${activeTab === 'materials' ? 'active' : ''}`} onClick={() => setActiveTab('materials')}>📚 Materials</button>
-        <button className={`tab-btn ${activeTab === 'exams' ? 'active' : ''}`} onClick={() => setActiveTab('exams')}>🧪 Exams</button>
-        <button className={`tab-btn ${activeTab === 'roster' ? 'active' : ''}`} onClick={() => setActiveTab('roster')}>👥 Roster</button>
-        <button className={`tab-btn ${activeTab === 'forum' ? 'active' : ''}`} onClick={() => setActiveTab('forum')}>💬 Forum</button>
-        <button className={`tab-btn ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}>📣 Announcements</button>
-        <button className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>📈 Analytics</button>
-        <button className={`tab-btn ${activeTab === 'leave-requests' ? 'active' : ''}`} onClick={() => setActiveTab('leave-requests')}>✋ Leave Requests</button>
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
@@ -115,7 +356,7 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <div className="stat-card">
                 <div className="stat-icon">📋</div>
                 <h3>Assignments</h3>
-                <p className="stat-number">{dashboardData.assignmentCount || 0}</p>
+                <p className="stat-number">{dashboardData.assignments || 0}</p>
               </div>
               <div className="stat-card">
                 <div className="stat-icon">⏳</div>
@@ -125,15 +366,37 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <div className="stat-card">
                 <div className="stat-icon">👨‍🎓</div>
                 <h3>Students</h3>
-                <p className="stat-number">{dashboardData.studentCount || 0}</p>
+                <p className="stat-number">{dashboardData.students || 0}</p>
               </div>
               <div className="stat-card">
                 <div className="stat-icon">📖</div>
                 <h3>Subjects</h3>
-                <p className="stat-number">{dashboardData.subjects?.length || 0}</p>
+                <p className="stat-number">{dashboardData.subjects || 0}</p>
+              </div>
+              <div className="stat-card">
+                <div className="stat-icon">📅</div>
+                <h3>Classes Today</h3>
+                <p className="stat-number">{dashboardData.todaysSchedules || 0}</p>
               </div>
             </div>
-            
+
+            <div className="overview-subjects">
+              <h3>Your Subjects</h3>
+              <div className="subject-pills">
+                {subjects.length === 0 ? (
+                  <p>No subjects assigned yet.</p>
+                ) : subjects.map((subject) => (
+                  <button
+                    key={subject.id}
+                    className="subject-pill"
+                    onClick={() => { setSelectedSubject(subject.id); setActiveTab('roster'); }}
+                  >
+                    {subject.name} <small>{subject.code} • Sem {subject.semester}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="overview-actions">
               <h3>Quick Actions</h3>
               <div className="action-buttons">
@@ -155,36 +418,44 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <button className="btn-primary" onClick={() => setShowAttendanceForm(!showAttendanceForm)}>+ Mark Attendance</button>
             </div>
             {showAttendanceForm && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleAttendanceSubmit}>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Date</label>
-                    <input type="date" required />
+                    <input type="date" name="date" required />
                   </div>
                   <div className="form-group">
                     <label>Subject</label>
-                    <select required><option>Select Subject</option></select>
-                  </div>
-                  <div className="form-group">
-                    <label>Semester</label>
-                    <select required><option>Select Semester</option></select>
+                    {renderSubjectSelect('subject', true, (e) => loadSubjectStudents(e.target.value))}
                   </div>
                 </div>
-                <div className="attendance-grid">
-                  <div className="student-attendance">
-                    <span>Student Name</span>
-                    <select><option>Present</option><option>Absent</option><option>Late</option></select>
+                {roster.length > 0 ? (
+                  <div className="attendance-grid">
+                    {roster.map((student) => (
+                      <div className="student-attendance" key={student._id}>
+                        <span>{student.user?.name || student.studentId}</span>
+                        <select name={`status_${student._id}`} defaultValue="present">
+                          <option value="present">Present</option>
+                          <option value="absent">Absent</option>
+                          <option value="late">Late</option>
+                        </select>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div className="info-box">Select a subject to load the class roster.</div>
+                )}
                 <div className="form-actions">
-                  <button type="submit" className="btn-primary">Submit Attendance</button>
+                  <button type="submit" className="btn-primary" disabled={roster.length === 0}>Submit Attendance</button>
                   <button type="button" className="btn-secondary" onClick={() => setShowAttendanceForm(false)}>Cancel</button>
                 </div>
               </form>
             )}
-            <div className="info-box">
-              <p>📌 Attendance records for this semester will appear here. Use the form above to mark attendance for your classes.</p>
-            </div>
+            {!showAttendanceForm && (
+              <div className="info-box">
+                <p>📌 Attendance records are marked per class using the form above. Select a subject and date to take attendance for all enrolled students.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -196,31 +467,49 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <button className="btn-primary" onClick={() => setShowMarksForm(!showMarksForm)}>+ Enter Marks</button>
             </div>
             {showMarksForm && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleMarksSubmit}>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Subject</label>
-                    <select required><option>Select Subject</option></select>
+                    {renderSubjectSelect('subject', true, (e) => loadSubjectStudents(e.target.value))}
                   </div>
                   <div className="form-group">
                     <label>Exam Type</label>
-                    <select required><option>Unit Test</option><option>Midterm</option><option>Final</option></select>
+                    <select name="examType" required>
+                      <option value="internal">Internal</option>
+                      <option value="midterm">Midterm</option>
+                      <option value="final">Final</option>
+                      <option value="assignment">Assignment</option>
+                    </select>
                   </div>
                 </div>
-                <table className="marks-entry-table">
-                  <thead>
-                    <tr><th>Student ID</th><th>Name</th><th>Marks</th><th>Out of</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr><td>CS-001</td><td>John Doe</td><td><input type="number" /></td><td>100</td></tr>
-                  </tbody>
-                </table>
-                <button type="submit" className="btn-primary">Save Marks</button>
+                {roster.length > 0 ? (
+                  <table className="marks-entry-table">
+                    <thead>
+                      <tr><th>Student ID</th><th>Name</th><th>Marks</th><th>Out of</th></tr>
+                    </thead>
+                    <tbody>
+                      {roster.map((student) => (
+                        <tr key={student._id}>
+                          <td>{student.studentId}</td>
+                          <td>{student.user?.name || student.studentId}</td>
+                          <td><input type="number" name={`marks_${student._id}`} min="0" max="100" /></td>
+                          <td><input type="number" name={`outof_${student._id}`} defaultValue="100" min="1" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="info-box">Select a subject to load the class roster.</div>
+                )}
+                <button type="submit" className="btn-primary" disabled={roster.length === 0}>Save Marks</button>
               </form>
             )}
-            <div className="info-box">
-              <p>📌 Marks recorded for all exams and assessments will appear here.</p>
-            </div>
+            {!showMarksForm && (
+              <div className="info-box">
+                <p>📌 Enter marks per subject and exam type. Select a subject to load enrolled students.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -232,15 +521,20 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <button className="btn-primary" onClick={() => setShowScheduleForm(!showScheduleForm)}>+ Add Schedule</button>
             </div>
             {showScheduleForm && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleScheduleSubmit}>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Subject</label>
-                    <select required><option>Select Subject</option></select>
+                    {renderSubjectSelect('subject')}
+                  </div>
+                  <div className="form-group">
+                    <label>Class</label>
+                    <input type="text" name="className" placeholder="B.Tech CSE - Semester 6" required />
                   </div>
                   <div className="form-group">
                     <label>Day</label>
-                    <select required>
+                    <select name="day" required>
+                      <option value="">Select Day</option>
                       <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
                       <option>Thursday</option><option>Friday</option><option>Saturday</option>
                     </select>
@@ -249,15 +543,15 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                 <div className="form-row">
                   <div className="form-group">
                     <label>Start Time</label>
-                    <input type="time" required />
+                    <input type="time" name="startTime" required />
                   </div>
                   <div className="form-group">
                     <label>End Time</label>
-                    <input type="time" required />
+                    <input type="time" name="endTime" required />
                   </div>
                   <div className="form-group">
                     <label>Room</label>
-                    <input type="text" placeholder="Room Number" />
+                    <input type="text" name="room" placeholder="Room Number" />
                   </div>
                 </div>
                 <button type="submit" className="btn-primary">Add Schedule</button>
@@ -284,28 +578,37 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <button className="btn-primary" onClick={() => setShowMaterialForm(!showMaterialForm)}>+ Upload Material</button>
             </div>
             {showMaterialForm && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleMaterialSubmit}>
                 <div className="form-group">
                   <label>Title</label>
-                  <input type="text" placeholder="Material Title" required />
+                  <input type="text" name="title" placeholder="Material Title" required />
                 </div>
                 <div className="form-group">
                   <label>Description</label>
-                  <textarea placeholder="Brief description"></textarea>
+                  <textarea name="description" placeholder="Brief description"></textarea>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
+                    <label>Subject</label>
+                    {renderSubjectSelect('subject')}
+                  </div>
+                  <div className="form-group">
                     <label>Type</label>
-                    <select required><option>PDF</option><option>Video</option><option>Document</option><option>Link</option></select>
+                    <select name="type" required>
+                      <option value="PDF">PDF</option>
+                      <option value="Video">Video</option>
+                      <option value="Document">Document</option>
+                      <option value="Link">Link</option>
+                    </select>
                   </div>
                   <div className="form-group">
                     <label>Category</label>
-                    <input type="text" placeholder="e.g., Chapter 1" />
+                    <input type="text" name="category" placeholder="e.g., Chapter 1" />
                   </div>
                 </div>
                 <div className="form-group">
                   <label>File URL</label>
-                  <input type="url" placeholder="https://..." required />
+                  <input type="url" name="fileUrl" placeholder="https://..." required />
                 </div>
                 <button type="submit" className="btn-primary">Upload</button>
               </form>
@@ -320,7 +623,7 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                     <span className="material-type">{item.type}</span>
                   </div>
                   <p>{item.description}</p>
-                  <small>Category: {item.category} | Downloads: {item.downloads}</small>
+                  <small>Subject: {item.subject?.name} | Category: {item.category} | Downloads: {item.downloads}</small>
                 </div>
               ))}
             </div>
@@ -335,38 +638,51 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <button className="btn-primary" onClick={() => setShowExamForm(!showExamForm)}>+ Create Exam</button>
             </div>
             {showExamForm && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleExamSubmit}>
                 <div className="form-group">
                   <label>Exam Title</label>
-                  <input type="text" placeholder="e.g., Unit Test 1" required />
+                  <input type="text" name="title" placeholder="e.g., Unit Test 1" required />
                 </div>
                 <div className="form-row">
                   <div className="form-group">
+                    <label>Subject</label>
+                    {renderSubjectSelect('subject')}
+                  </div>
+                  <div className="form-group">
                     <label>Exam Date</label>
-                    <input type="date" required />
+                    <input type="date" name="examDate" required />
                   </div>
                   <div className="form-group">
                     <label>Exam Type</label>
-                    <select required><option>Unit Test</option><option>Midterm</option><option>Final</option><option>Quiz</option></select>
+                    <select name="examType" required>
+                      <option value="Unit Test">Unit Test</option>
+                      <option value="Midterm">Midterm</option>
+                      <option value="Final">Final</option>
+                      <option value="Quiz">Quiz</option>
+                    </select>
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Start Time</label>
-                    <input type="time" required />
+                    <input type="time" name="startTime" required />
                   </div>
                   <div className="form-group">
                     <label>End Time</label>
-                    <input type="time" required />
+                    <input type="time" name="endTime" required />
                   </div>
                   <div className="form-group">
                     <label>Total Marks</label>
-                    <input type="number" placeholder="100" required />
+                    <input type="number" name="totalMarks" placeholder="100" required />
                   </div>
-                </div>
-                <div className="form-group">
-                  <label>Room</label>
-                  <input type="text" placeholder="Room Number" />
+                  <div className="form-group">
+                    <label>Duration (min)</label>
+                    <input type="number" name="duration" placeholder="60" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Room</label>
+                    <input type="text" name="room" placeholder="Room Number" />
+                  </div>
                 </div>
                 <button type="submit" className="btn-primary">Create Exam</button>
               </form>
@@ -380,7 +696,7 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                     <h4>{item.title}</h4>
                     <span className={`status status-${item.status}`}>{item.status}</span>
                   </div>
-                  <p>Date: {new Date(item.examDate).toLocaleDateString()} | Time: {item.startTime} - {item.endTime}</p>
+                  <p>Subject: {item.subject?.name} | Date: {new Date(item.examDate).toLocaleDateString()} | Time: {item.startTime} - {item.endTime}</p>
                   <small>Total Marks: {item.totalMarks} | Type: {item.examType} | Room: {item.room || 'TBD'}</small>
                 </div>
               ))}
@@ -393,6 +709,9 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
           <div className="roster-section">
             <div className="section-header">
               <h2>👥 Student Roster</h2>
+              <div className="form-group">
+                {renderSubjectSelect('subject-select', true, (e) => loadSubjectStudents(e.target.value))}
+              </div>
             </div>
             <table className="data-table">
               <thead>
@@ -400,22 +719,20 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                   <th>Student ID</th>
                   <th>Name</th>
                   <th>Email</th>
-                  <th>Phone</th>
-                  <th>Batch</th>
-                  <th>Action</th>
+                  <th>Semester</th>
+                  <th>CGPA</th>
                 </tr>
               </thead>
               <tbody>
                 {roster.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center">No students in roster</td></tr>
+                  <tr><td colSpan="5" className="text-center">Select a subject to view the roster</td></tr>
                 ) : roster.map(student => (
                   <tr key={student._id}>
                     <td>{student.studentId}</td>
-                    <td><strong>{student.name}</strong></td>
-                    <td>{student.email}</td>
-                    <td>{student.phone}</td>
-                    <td>{student.batch}</td>
-                    <td><button className="btn-small">View</button></td>
+                    <td><strong>{student.user?.name || student.studentId}</strong></td>
+                    <td>{student.user?.email}</td>
+                    <td>{student.semester}</td>
+                    <td>{student.cgpa}</td>
                   </tr>
                 ))}
               </tbody>
@@ -428,26 +745,33 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
           <div className="forum-section">
             <div className="section-header">
               <h2>💬 Class Forum</h2>
-              <button className="btn-primary" onClick={() => setShowForumPost(!showForumPost)}>+ Create Post</button>
+              <div className="form-group">
+                {renderSubjectSelect('subject-select', true, (e) => setSelectedSubject(e.target.value))}
+              </div>
+              <button className="btn-primary" onClick={() => setShowForumPost(!showForumPost)} disabled={!selectedSubject}>+ Create Post</button>
             </div>
             {showForumPost && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleForumPost}>
                 <div className="form-group">
                   <label>Title</label>
-                  <input type="text" placeholder="Post title" required />
+                  <input type="text" name="title" placeholder="Post title" required />
                 </div>
                 <div className="form-group">
                   <label>Content</label>
-                  <textarea placeholder="Write your message..." rows="6" required></textarea>
+                  <textarea name="content" placeholder="Write your message..." rows="6" required></textarea>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Category</label>
-                    <select required><option>Question</option><option>Discussion</option><option>Announcement</option></select>
+                    <select name="category" required>
+                      <option value="Discussion">Discussion</option>
+                      <option value="Question">Question</option>
+                      <option value="Announcement">Announcement</option>
+                    </select>
                   </div>
                   <div className="form-group">
                     <label className="checkbox">
-                      <input type="checkbox" /> Pin this post
+                      <input type="checkbox" name="isAnnouncement" /> Pin this post
                     </label>
                   </div>
                 </div>
@@ -455,7 +779,9 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               </form>
             )}
             <div className="forum-posts">
-              {forumPosts.length === 0 ? (
+              {!selectedSubject ? (
+                <div className="info-box">Select a subject to view its forum.</div>
+              ) : forumPosts.length === 0 ? (
                 <div className="info-box">No forum posts yet. Create one to start discussions!</div>
               ) : forumPosts.map(post => (
                 <div key={post._id} className="forum-post">
@@ -463,7 +789,7 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                     <h4>{post.title}</h4>
                     <span className="post-category">{post.category}</span>
                   </div>
-                  <p>{post.content.substring(0, 200)}...</p>
+                  <p>{post.content.length > 200 ? `${post.content.substring(0, 200)}...` : post.content}</p>
                   <div className="post-meta">
                     <small>by {post.author?.name} | {post.replies?.length || 0} replies | {post.likes?.length || 0} likes</small>
                   </div>
@@ -481,28 +807,28 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               <button className="btn-primary" onClick={() => setShowAnnouncementForm(!showAnnouncementForm)}>+ Create Announcement</button>
             </div>
             {showAnnouncementForm && (
-              <form className="form-card">
+              <form className="form-card" onSubmit={handleAnnouncementSubmit}>
                 <div className="form-group">
                   <label>Title</label>
-                  <input type="text" placeholder="Announcement title" required />
+                  <input type="text" name="title" placeholder="Announcement title" required />
                 </div>
                 <div className="form-group">
                   <label>Message</label>
-                  <textarea placeholder="Write your announcement..." rows="6" required></textarea>
+                  <textarea name="message" placeholder="Write your announcement..." rows="6" required></textarea>
                 </div>
                 <div className="form-group">
-                  <label>Priority</label>
-                  <select>
-                    <option>Normal</option>
-                    <option>Urgent</option>
-                    <option>Important</option>
+                  <label>Category</label>
+                  <select name="priority">
+                    <option value="General">General</option>
+                    <option value="Academic">Academic</option>
+                    <option value="Urgent">Urgent</option>
                   </select>
                 </div>
                 <button type="submit" className="btn-primary">Post Announcement</button>
               </form>
             )}
             <div className="info-box">
-              <p>📌 Announcements will be sent to all students via email and displayed on their dashboard.</p>
+              <p>📌 Announcements are posted to the campus notice board and shown on student dashboards.</p>
             </div>
           </div>
         )}
@@ -511,44 +837,55 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
         {activeTab === 'analytics' && (
           <div className="analytics-section">
             <h2>📈 Performance Analytics</h2>
-            <div className="analytics-grid">
-              <div className="chart-container">
-                <h3>Class Grade Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={[
-                      { name: 'A (90+)', value: 15 },
-                      { name: 'B (80-89)', value: 25 },
-                      { name: 'C (70-79)', value: 35 },
-                      { name: 'D (60-69)', value: 20 },
-                      { name: 'F (< 60)', value: 5 }
-                    ]} cx="50%" cy="50%" labelLine={false} label>
-                      <Cell fill="#8884d8" />
-                      <Cell fill="#82ca9d" />
-                      <Cell fill="#ffc658" />
-                      <Cell fill="#ff7c7c" />
-                      <Cell fill="#ff4444" />
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              
-              <div className="analytics-stats">
-                <div className="analytics-card">
-                  <h4>Average Score</h4>
-                  <p className="big-number">72.5%</p>
-                </div>
-                <div className="analytics-card">
-                  <h4>Average Attendance</h4>
-                  <p className="big-number">85%</p>
-                </div>
-                <div className="analytics-card">
-                  <h4>Assignment Completion Rate</h4>
-                  <p className="big-number">92%</p>
-                </div>
-              </div>
+            <div className="form-group">
+              {renderSubjectSelect('subject-select', true, async (e) => {
+                const subjectId = e.target.value;
+                setSelectedSubject(subjectId);
+                const fac = await getFacultyId();
+                if (fac && subjectId) {
+                  const res = await api.get(`/faculty/${fac}/class-analytics/${subjectId}`);
+                  setAnalyticsData(res.data);
+                }
+              })}
             </div>
+            {analyticsData ? (
+              <div className="analytics-grid">
+                <div className="chart-container">
+                  <h3>Class Grade Distribution ({analyticsData.subject})</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={Object.entries(analyticsData.marks?.distribution || {}).map(([name, value]) => ({ name, value }))} cx="50%" cy="50%" labelLine={false} label>
+                        {Object.entries(analyticsData.marks?.distribution || {}).map(([name], index) => (
+                          <Cell key={name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="analytics-stats">
+                  <div className="analytics-card">
+                    <h4>Average Score</h4>
+                    <p className="big-number">{analyticsData.marks?.average || 0}%</p>
+                  </div>
+                  <div className="analytics-card">
+                    <h4>Average Attendance</h4>
+                    <p className="big-number">{analyticsData.attendance?.average || 0}%</p>
+                  </div>
+                  <div className="analytics-card">
+                    <h4>Total Students</h4>
+                    <p className="big-number">{analyticsData.totalStudents || 0}</p>
+                  </div>
+                  <div className="analytics-card">
+                    <h4>Attendance Records</h4>
+                    <p className="big-number">{analyticsData.attendance?.total || 0}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="info-box">Select a subject to view class performance analytics.</div>
+            )}
           </div>
         )}
 
@@ -562,11 +899,11 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
               ) : leaveRequests.map(request => (
                 <div key={request._id} className="request-item card">
                   <div className="request-header">
-                    <h4>{request.student?.name}</h4>
+                    <h4>{request.student?.user?.name || request.student?.name || 'Student'}</h4>
                     <span className={`badge badge-${request.status}`}>{request.status}</span>
                   </div>
                   <p><strong>Student ID:</strong> {request.student?.studentId}</p>
-                  <p><strong>Duration:</strong> {new Date(request.startDate).toLocaleDateString()} to {new Date(request.endDate).toLocaleDateString()}</p>
+                  <p><strong>Duration:</strong> {new Date(request.fromDate).toLocaleDateString()} to {new Date(request.toDate).toLocaleDateString()}</p>
                   <p><strong>Reason:</strong> {request.reason}</p>
                   {request.status === 'pending' && (
                     <div className="request-actions">
