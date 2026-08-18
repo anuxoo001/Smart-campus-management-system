@@ -280,12 +280,14 @@ const sendLoginOTP = async (req, res, next) => {
     user.smsOTPAttempts = 0;
     await user.save();
 
+    const isTestMode = process.env.USE_TEST_EMAIL === 'true' || process.env.USE_TEST_EMAIL === '1';
+
     try {
       await sendEmail(user.email, 'loginOTP', [user.name, otp]);
     } catch (emailError) {
       console.error('OTP email sending failed:', emailError.message);
 
-      if (process.env.USE_TEST_EMAIL === 'true' || process.env.USE_TEST_EMAIL === '1') {
+      if (isTestMode) {
         console.warn(`\n[OTP TEST MODE FALLBACK] User: ${user.email} | OTP: ${otp}\n`);
         return res.status(200).json({
           message: 'OTP generated in test mode. Check the backend console for the OTP code.',
@@ -298,6 +300,15 @@ const sendLoginOTP = async (req, res, next) => {
       return res.status(500).json({
         message: 'OTP could not be delivered to this email. Please use a verified email address or contact support.',
         details: emailError.message,
+      });
+    }
+
+    if (isTestMode) {
+      console.warn(`\n[OTP TEST MODE] User: ${user.email} | OTP: ${otp}\n`);
+      return res.status(200).json({
+        message: `OTP sent to your test inbox (${process.env.TEST_EMAIL || user.email}). Use the code below.`,
+        success: true,
+        debugOtp: otp,
       });
     }
 
@@ -413,12 +424,14 @@ const resendLoginOTP = async (req, res, next) => {
     user.smsOTPAttempts = 0;
     await user.save();
 
+    const isTestMode = process.env.USE_TEST_EMAIL === 'true' || process.env.USE_TEST_EMAIL === '1';
+
     try {
       await sendEmail(user.email, 'loginOTP', [user.name, otp]);
     } catch (emailError) {
       console.error('OTP email resending failed:', emailError.message);
 
-      if (process.env.USE_TEST_EMAIL === 'true' || process.env.USE_TEST_EMAIL === '1') {
+      if (isTestMode) {
         console.warn(`\n[OTP TEST MODE FALLBACK] User: ${user.email} | OTP: ${otp}\n`);
         return res.status(200).json({
           message: 'OTP generated in test mode. Check the backend console for the OTP code.',
@@ -431,6 +444,15 @@ const resendLoginOTP = async (req, res, next) => {
       return res.status(500).json({
         message: 'OTP could not be delivered to this email. Please use a verified email address or contact support.',
         details: emailError.message,
+      });
+    }
+
+    if (isTestMode) {
+      console.warn(`\n[OTP TEST MODE] User: ${user.email} | OTP: ${otp}\n`);
+      return res.status(200).json({
+        message: `OTP resent to your test inbox (${process.env.TEST_EMAIL || user.email}). Use the code below.`,
+        success: true,
+        debugOtp: otp,
       });
     }
 

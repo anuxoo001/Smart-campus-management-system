@@ -44,11 +44,15 @@ function SMSLoginPage() {
     }
 
     try {
-      await dispatch(sendOTP({ email: normalizedEmail })).unwrap();
+      const result = await dispatch(sendOTP({ email: normalizedEmail })).unwrap();
       setStep('otp');
       setTimer(60);
       setAttempts(0);
-      setMessage(`OTP sent successfully! Check ${normalizedEmail} for the code.`);
+      if (result?.debugOtp) {
+        setMessage(`Test mode OTP: ${result.debugOtp} (also emailed to ${result.message ? 'your test inbox' : normalizedEmail})`);
+      } else {
+        setMessage(`OTP sent successfully! Check ${normalizedEmail} for the code.`);
+      }
     } catch (err) {
       const errorMessage = typeof err === 'string' ? err : 'Failed to send OTP. Please try again.';
       setMessage(errorMessage);
@@ -90,11 +94,11 @@ function SMSLoginPage() {
     setMessage('');
 
     try {
-      await dispatch(resendOTP({ email: email.trim() })).unwrap();
+      const result = await dispatch(resendOTP({ email: email.trim() })).unwrap();
       setTimer(60);
       setAttempts(0);
       setOtp('');
-      setMessage('New OTP sent successfully!');
+      setMessage(result?.debugOtp ? `Test mode OTP: ${result.debugOtp}` : 'New OTP sent successfully!');
     } catch (err) {
       const errorMessage = typeof err === 'string' ? err : 'Failed to resend OTP. Please try again.';
       setMessage(errorMessage);
