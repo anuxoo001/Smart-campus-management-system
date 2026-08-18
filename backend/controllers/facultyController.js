@@ -431,8 +431,11 @@ const getPendingLeaveRequests = async (req, res, next) => {
 
     const LeaveRequest = require('../models/LeaveRequest');
     const leaves = await LeaveRequest.find({})
-      .populate('student', 'studentId user semester')
-      .populate('student.user', 'name email')
+      .populate({
+        path: 'student',
+        select: 'studentId user semester',
+        populate: { path: 'user', select: 'name email' },
+      })
       .sort({ createdAt: -1 });
 
     res.json(leaves);
