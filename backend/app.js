@@ -43,6 +43,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Smart Campus Management System API is running',
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Smart Campus API is running.' });
 });
