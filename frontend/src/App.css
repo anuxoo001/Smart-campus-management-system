@@ -1124,3 +1124,104 @@
     flex-direction: column;
   }
 }
+
+/* ===== Student & Teacher Smart Features ===== */
+.admin-message {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin: 0 0 1rem;
+  font-weight: 500;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.admin-message.success { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.admin-message.error { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.section-title-row h2 { margin: 0; }
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+.schedule-grid h3 { margin: 0 0 0.75rem; }
+.schedule-item {
+  padding: 0.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: #fff;
+}
+.schedule-time { font-weight: 700; font-size: 0.9rem; color: #2563eb; }
+.schedule-subject { font-weight: 600; margin: 0.15rem 0; }
+.schedule-room { font-size: 0.8rem; color: #64748b; }
+
+.exam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.exam-card h3 { margin: 0; }
+.countdown {
+  margin-top: 0.5rem;
+  font-weight: 700;
+  color: #dc2626;
+  font-size: 0.9rem;
+}
+
+.materials-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.material-card h4 { margin: 0; }
+
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.notification-card h4 { margin: 0; }
+.notification-card.unread {
+  border-left: 4px solid #2563eb;
+}
+
+.progress-row { margin-bottom: 0.85rem; }
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+.progress-track {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #60a5fa, #2563eb);
+  border-radius: 999px;
+}
+.progress-fill.fill-warning { background: linear-gradient(90deg, #fbbf24, #dc2626); }
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.reports-grid .card h3 { margin: 0 0 0.5rem; }
+.reports-grid .card p { color: #64748b; font-size: 0.9rem; }

@@ -12,6 +12,11 @@ const initialState = {
   events: [],
   jobs: [],
   notifications: [],
+  schedule: [],
+  exams: [],
+  materials: [],
+  placements: [],
+  jobApplications: [],
   loading: false,
   error: null,
 };
@@ -124,6 +129,66 @@ export const fetchNotifications = createAsyncThunk(
   }
 );
 
+export const fetchStudentSchedule = createAsyncThunk(
+  'student/fetchSchedule',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/students/me/schedule');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch schedule');
+    }
+  }
+);
+
+export const fetchStudentExams = createAsyncThunk(
+  'student/fetchExams',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/students/me/exams');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch exams');
+    }
+  }
+);
+
+export const fetchStudentMaterials = createAsyncThunk(
+  'student/fetchMaterials',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/students/me/materials');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch materials');
+    }
+  }
+);
+
+export const fetchStudentPlacements = createAsyncThunk(
+  'student/fetchPlacements',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/students/me/placements');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch placements');
+    }
+  }
+);
+
+export const fetchJobApplications = createAsyncThunk(
+  'student/fetchJobApplications',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/jobs/applications');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch applications');
+    }
+  }
+);
+
 const studentSlice = createSlice({
   name: 'student',
   initialState,
@@ -186,6 +251,26 @@ const studentSlice = createSlice({
       // Notifications
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.notifications = action.payload;
+      })
+      // Schedule
+      .addCase(fetchStudentSchedule.fulfilled, (state, action) => {
+        state.schedule = action.payload;
+      })
+      // Exams
+      .addCase(fetchStudentExams.fulfilled, (state, action) => {
+        state.exams = action.payload;
+      })
+      // Materials
+      .addCase(fetchStudentMaterials.fulfilled, (state, action) => {
+        state.materials = action.payload;
+      })
+      // Placements
+      .addCase(fetchStudentPlacements.fulfilled, (state, action) => {
+        state.placements = action.payload;
+      })
+      // Job applications
+      .addCase(fetchJobApplications.fulfilled, (state, action) => {
+        state.jobApplications = action.payload;
       });
   },
 });

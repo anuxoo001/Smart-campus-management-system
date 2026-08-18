@@ -6,6 +6,11 @@ import {
   BookOpen,
   BriefcaseBusiness,
   CalendarCheck2,
+  Calendar,
+  ClipboardList,
+  Book,
+  TrendingUp,
+  User,
   GraduationCap,
   LayoutDashboard,
   LogIn,
@@ -27,7 +32,7 @@ import {
 } from 'recharts';
 import './App.css';
 import { fetchCurrentUser, loginUser, logoutUser, registerUser, requestPasswordReset, resetPassword, verifyEmail } from './store/authSlice';
-import { fetchStudentDashboard, fetchNotices, fetchEvents, fetchStudentAttendance, fetchStudentMarks, fetchStudentAssignments, fetchStudentProfile, fetchJobs, fetchNotifications } from './store/studentSlice';
+import { fetchStudentDashboard, fetchNotices, fetchEvents, fetchStudentAttendance, fetchStudentMarks, fetchStudentAssignments, fetchStudentProfile, fetchJobs, fetchNotifications, fetchStudentSchedule, fetchStudentExams, fetchStudentMaterials, fetchStudentPlacements, fetchJobApplications } from './store/studentSlice';
 import api from './services/api';
 import LoginTypeSelector from './LoginTypeSelector';
 import StudentLoginPage from './StudentLoginPage';
@@ -36,6 +41,7 @@ import AdminLoginPage from './AdminLoginPage';
 import AdminDashboard from './AdminDashboard';
 import EnhancedTeacherDashboard from './EnhancedTeacherDashboard';
 import StudentTaskDashboard from './StudentTaskDashboard';
+import { StudentSchedulePage, StudentExamsPage, StudentMaterialsPage, StudentNotificationsPage, PlacementBoardPage, AcademicAnalyticsPage } from './StudentFeatures';
 import TeacherQuizPanel from './TeacherQuizPanel';
 import StudentQuizPanel from './StudentQuizPanel';
 
@@ -45,10 +51,15 @@ const navItems = [
   { to: '/attendance', label: 'Attendance', icon: CalendarCheck2 },
   { to: '/marks', label: 'Marks', icon: BookOpen },
   { to: '/assignments', label: 'Assignments', icon: School },
+  { to: '/schedule', label: 'Schedule', icon: Calendar },
+  { to: '/exams', label: 'Exams', icon: ClipboardList },
+  { to: '/materials', label: 'Materials', icon: Book },
+  { to: '/analytics', label: 'Analytics', icon: TrendingUp },
   { to: '/notices', label: 'Notices', icon: Megaphone },
   { to: '/events', label: 'Events', icon: Sparkles },
   { to: '/jobs', label: 'Placements', icon: BriefcaseBusiness },
-  { to: '/profile', label: 'Profile', icon: Bell },
+  { to: '/notifications', label: 'Notifications', icon: Bell },
+  { to: '/profile', label: 'Profile', icon: User },
   { to: '/login', label: 'Login', icon: LogIn },
 ];
 
@@ -99,6 +110,11 @@ function AuthenticatedApp() {
       dispatch(fetchStudentProfile());
       dispatch(fetchJobs());
       dispatch(fetchNotifications());
+      dispatch(fetchStudentSchedule());
+      dispatch(fetchStudentExams());
+      dispatch(fetchStudentMaterials());
+      dispatch(fetchStudentPlacements());
+      dispatch(fetchJobApplications());
     }
   }, [isAuthenticated, dispatch, user]);
 
@@ -205,9 +221,14 @@ function AuthenticatedApp() {
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/marks" element={<MarksPage />} />
           <Route path="/assignments" element={<AssignmentsPage />} />
+          <Route path="/schedule" element={<StudentSchedulePage />} />
+          <Route path="/exams" element={<StudentExamsPage />} />
+          <Route path="/materials" element={<StudentMaterialsPage />} />
+          <Route path="/analytics" element={<AcademicAnalyticsPage />} />
           <Route path="/notices" element={<NoticesPage />} />
           <Route path="/events" element={<EventsPage />} />
-          <Route path="/jobs" element={<PlacementPage />} />
+          <Route path="/jobs" element={<PlacementBoardPage />} />
+          <Route path="/notifications" element={<StudentNotificationsPage />} />
           <Route path="/quizzes" element={<StudentQuizPanel />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
@@ -621,6 +642,10 @@ function DashboardPage() {
     pendingAssignments: 0,
     notifications: 0,
     upcomingEvents: 0,
+    upcomingExams: 0,
+    placementPosts: 0,
+    jobApplications: 0,
+    todaysClasses: 0,
   };
 
   // Per-subject attendance for chart
@@ -677,6 +702,10 @@ function DashboardPage() {
           { label: 'Attendance', value: `${stats.attendanceSummary?.percentage || 0}%`, icon: '📅', trend: `${stats.attendanceSummary?.classesAttended || 0}/${stats.attendanceSummary?.totalClasses || 0} classes` },
           { label: 'Marks Average', value: stats.marksAverage || '—', icon: '📝', trend: 'All subjects' },
           { label: 'Pending Tasks', value: stats.pendingAssignments || 0, icon: '⏳', trend: 'Action required' },
+          { label: 'Classes Today', value: stats.todaysClasses || 0, icon: '🏫', trend: 'Scheduled' },
+          { label: 'Upcoming Exams', value: stats.upcomingExams || 0, icon: '🧪', trend: 'This semester' },
+          { label: 'Placements', value: stats.placementPosts || 0, icon: '💼', trend: 'Open positions' },
+          { label: 'Applications', value: stats.jobApplications || 0, icon: '📋', trend: 'Submitted' },
           { label: 'Notifications', value: notifications.length || 0, icon: '🔔', trend: 'Inbox' },
           { label: 'Events', value: events.length || 0, icon: '📣', trend: 'Upcoming' },
         ].map((item) => (

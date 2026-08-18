@@ -80,6 +80,7 @@ app.use('/api/materials', require('./routes/materialRoutes'));
 app.use('/api/exams', require('./routes/examRoutes'));
 app.use('/api/subjects', require('./routes/subjectRoutes'));
 app.use('/api/forum', require('./routes/forumRoutes'));
+app.use('/api/placements', require('./routes/placementRoutes'));
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found.' });

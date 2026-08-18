@@ -28,6 +28,10 @@ export const studentAPI = {
   getNotices: () => api.get('/students/notices'),
   getEvents: () => api.get('/students/events'),
   updateProfile: (data) => api.put('/students/me/profile', data),
+  getSchedule: () => api.get('/students/me/schedule'),
+  getExams: () => api.get('/students/me/exams'),
+  getMaterials: () => api.get('/students/me/materials'),
+  getPlacements: () => api.get('/students/me/placements'),
 };
 
 // Faculty endpoints

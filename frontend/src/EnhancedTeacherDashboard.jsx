@@ -14,7 +14,9 @@ const TABS = [
   { key: 'roster', label: '👥 Roster' },
   { key: 'forum', label: '💬 Forum' },
   { key: 'announcements', label: '📣 Announcements' },
+  { key: 'placements', label: '💼 Placements' },
   { key: 'analytics', label: '📈 Analytics' },
+  { key: 'reports', label: '🗂 Reports' },
   { key: 'leave-requests', label: '✋ Leave Requests' },
 ];
 
@@ -34,6 +36,9 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
   const [roster, setRoster] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [placements, setPlacements] = useState([]);
+  const [showPlacementForm, setShowPlacementForm] = useState(false);
+  const [placementMessage, setPlacementMessage] = useState('');
 
   // Form states
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
@@ -83,6 +88,9 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
           const res = await api.get(`/faculty/${fac}/leave-requests`);
           setLeaveRequests(res.data || []);
         }
+      } else if (activeTab === 'placements') {
+        const res = await api.get('/placements?mine=true');
+        setPlacements(res.data || []);
       } else if (activeTab === 'analytics') {
         const fac = await getFacultyId();
         if (fac) {
@@ -385,6 +393,103 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
       console.error('Error updating leave request:', error);
       alert('Failed to update leave request');
     }
+  };
+
+  const handlePlacementSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const payload = {
+      title: form.title.value,
+      company: form.company.value,
+      role: form.role.value,
+      package: form.package.value,
+      location: form.location.value,
+      minCGPA: Number(form.minCGPA.value || 0),
+      eligibility: form.eligibility.value,
+      deadline: form.deadline.value || undefined,
+      description: form.description.value,
+    };
+    try {
+      await api.post('/placements', payload);
+      setShowPlacementForm(false);
+      setPlacementMessage('Placement information published successfully! Students can now view it on their Placement Board.');
+      fetchAllData();
+      form.reset();
+    } catch (error) {
+      setPlacementMessage(error.response?.data?.message || 'Failed to publish placement information.');
+    }
+    setTimeout(() => setPlacementMessage(''), 6000);
+  };
+
+  const handleTogglePlacementStatus = async (post) => {
+    try {
+      await api.put(`/placements/${post._id}`, { status: post.status === 'open' ? 'closed' : 'open' });
+      fetchAllData();
+    } catch (error) {
+      alert('Failed to update placement status');
+    }
+  };
+
+  const handleDeletePlacement = async (postId) => {
+    if (!window.confirm('Delete this placement post?')) return;
+    try {
+      await api.delete(`/placements/${postId}`);
+      fetchAllData();
+    } catch (error) {
+      alert('Failed to delete placement post');
+    }
+  };
+
+  const exportClassReport = async () => {
+    try {
+      const fac = await getFacultyId();
+      const res = await api.get(`/faculty/${fac}/class-analytics/${selectedSubject}`);
+      const data = res.data;
+      const rows = (data?.students || []).map((s) => ({
+        Name: s.name,
+        'Roll No': s.studentId,
+        Attendance: s.attendance,
+        'Average Score': s.averageScore,
+        Grade: s.grade,
+      }));
+      exportCsv('class-performance-report.csv', rows);
+    } catch (error) {
+      alert('Failed to export report');
+    }
+  };
+
+  const exportAttendanceReport = async () => {
+    try {
+      const fac = await getFacultyId();
+      const res = await api.get(`/schedule/faculty/${fac}`);
+      const days = res.data || [];
+      exportCsv('class-schedule.csv', days.map((s) => ({
+        Subject: s.subject?.name,
+        Day: s.dayOfWeek,
+        Start: s.startTime,
+        End: s.endTime,
+        Room: s.room,
+        Status: s.isCompleted ? 'Completed' : 'Pending',
+      })));
+    } catch (error) {
+      alert('Failed to export report');
+    }
+  };
+
+  const exportCsv = (filename, rows) => {
+    if (!rows || rows.length === 0) {
+      alert('No data to export.');
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join(','), ...rows.map((r) => headers.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','))];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const renderSubjectSelect = (name, required = true, onChange) => (
@@ -1043,6 +1148,140 @@ const EnhancedTeacherDashboard = ({ initialTab = 'overview' }) => {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Placements Tab */}
+        {activeTab === 'placements' && (
+          <div className="placements-section">
+            <div className="section-title-row">
+              <h2>💼 Placement Information</h2>
+              <button className="btn-primary" onClick={() => setShowPlacementForm((v) => !v)}>
+                {showPlacementForm ? 'Close Form' : '+ Share Placement Info'}
+              </button>
+            </div>
+            {placementMessage && <div className="admin-message success">{placementMessage}</div>}
+
+            {showPlacementForm && (
+              <form className="card admin-form" onSubmit={handlePlacementSubmit}>
+                <h3>Post Placement / Job Information for Students</h3>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Title *</label>
+                    <input type="text" name="title" placeholder="e.g. Campus Placement Drive" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Company *</label>
+                    <input type="text" name="company" placeholder="e.g. Google" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Role</label>
+                    <input type="text" name="role" placeholder="e.g. Software Engineer" />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Package</label>
+                    <input type="text" name="package" placeholder="e.g. 12 LPA" />
+                  </div>
+                  <div className="form-group">
+                    <label>Location</label>
+                    <input type="text" name="location" placeholder="e.g. Bangalore" />
+                  </div>
+                  <div className="form-group">
+                    <label>Minimum CGPA</label>
+                    <input type="number" name="minCGPA" min="0" max="10" step="0.1" placeholder="e.g. 7.0" />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Eligibility</label>
+                    <input type="text" name="eligibility" placeholder="e.g. CS/IT, No backlogs" />
+                  </div>
+                  <div className="form-group">
+                    <label>Application Deadline</label>
+                    <input type="date" name="deadline" />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea name="description" rows={3} placeholder="Details about the role, process, documents required, etc." />
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary">Publish Placement Info</button>
+                </div>
+              </form>
+            )}
+
+            <div className="placements-list">
+              {placements.length === 0 ? (
+                <div className="info-box">You haven't shared any placement information yet.</div>
+              ) : placements.map(post => (
+                <article key={post._id} className="card job-card">
+                  <div className="section-head">
+                    <h3>{post.title}</h3>
+                    <span className={`badge ${post.status === 'open' ? 'badge-success' : 'badge-secondary'}`}>{post.status}</span>
+                  </div>
+                  <p><strong>{post.company}</strong> {post.role ? `· ${post.role}` : ''}</p>
+                  <div className="meta-row">
+                    {post.location && <span>{post.location}</span>}
+                    {post.package && <span>Package: {post.package}</span>}
+                    {post.minCGPA > 0 && <span>Min CGPA: {post.minCGPA}</span>}
+                  </div>
+                  {post.description && <p>{post.description}</p>}
+                  {post.eligibility && <p className="meta-row">Eligibility: {post.eligibility}</p>}
+                  <p className="meta-row">
+                    {post.deadline ? `Deadline: ${new Date(post.deadline).toLocaleDateString()}` : ''}
+                    <span> · Posted {new Date(post.createdAt).toLocaleDateString()}</span>
+                  </p>
+                  <div className="request-actions">
+                    <button className="btn-secondary" onClick={() => handleTogglePlacementStatus(post)}>
+                      {post.status === 'open' ? 'Close Post' : 'Reopen Post'}
+                    </button>
+                    <button className="btn-danger" onClick={() => handleDeletePlacement(post._id)}>Delete</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <div className="reports-section">
+            <h2>🗂 Class Reports & Exports</h2>
+            <div className="reports-grid">
+              <div className="card">
+                <h3>Class Performance Report</h3>
+                <p>Export subject-wise performance analytics to CSV.</p>
+                <div className="form-group">
+                  <label>Subject</label>
+                  <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)}>
+                    <option value="">Select subject</option>
+                    {(dashboardData?.subjectList || allSubjects || []).map((s) => (
+                      <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button className="btn-primary" onClick={exportClassReport} disabled={!selectedSubject}>
+                  Export CSV Report
+                </button>
+              </div>
+              <div className="card">
+                <h3>Attendance Register</h3>
+                <p>Download the full attendance register as CSV.</p>
+                <button className="btn-primary" onClick={exportAttendanceReport}>
+                  Export Attendance CSV
+                </button>
+              </div>
+              <div className="card">
+                <h3>Student Performance Analytics</h3>
+                <p>View subject-wise class performance with insights.</p>
+                <button className="btn-secondary" onClick={() => setActiveTab('analytics')}>
+                  Open Analytics
+                </button>
+              </div>
             </div>
           </div>
         )}

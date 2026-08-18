@@ -12,6 +12,8 @@ const TABS = [
   { key: 'notices', label: '📣 Notices' },
   { key: 'events', label: '🎉 Events' },
   { key: 'leaves', label: '✋ Leave Requests' },
+  { key: 'placements', label: '💼 Placements & Jobs' },
+  { key: 'reports', label: '🗂 Reports' },
 ];
 
 const AdminDashboard = ({ initialTab = 'dashboard' }) => {
@@ -30,6 +32,9 @@ const AdminDashboard = ({ initialTab = 'dashboard' }) => {
   const [notices, setNotices] = useState([]);
   const [events, setEvents] = useState([]);
   const [leaves, setLeaves] = useState([]);
+  const [placements, setPlacements] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [jobApplications, setJobApplications] = useState([]);
   const [message, setMessage] = useState(null);
 
   // Create forms
@@ -99,6 +104,105 @@ const AdminDashboard = ({ initialTab = 'dashboard' }) => {
     }
   };
 
+  const fetchPlacements = async () => {
+    try {
+      const [placeRes, jobRes, appRes] = await Promise.all([
+        api.get('/placements'),
+        api.get('/jobs'),
+        api.get('/admin/job-applications'),
+      ]);
+      setPlacements(placeRes.data || []);
+      setJobs(jobRes.data || []);
+      setJobApplications(appRes.data || []);
+    } catch (error) {
+      console.error('Error fetching placement data:', error);
+    }
+  };
+
+  const handlePlacementSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const payload = {
+      title: form.title.value,
+      company: form.company.value,
+      role: form.role.value,
+      package: form.package.value,
+      location: form.location.value,
+      minCGPA: Number(form.minCGPA.value || 0),
+      eligibility: form.eligibility.value,
+      deadline: form.deadline.value || undefined,
+      description: form.description.value,
+    };
+    try {
+      await api.post('/placements', payload);
+      setMessage({ type: 'success', text: 'Placement information published successfully!' });
+      fetchPlacements();
+      form.reset();
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to publish placement information.' });
+    }
+    setTimeout(() => setMessage(null), 5000);
+  };
+
+  const handleDeletePlacement = async (postId) => {
+    if (!window.confirm('Delete this placement post?')) return;
+    try {
+      await api.delete(`/placements/${postId}`);
+      fetchPlacements();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete placement post.' });
+      setTimeout(() => setMessage(null), 4000);
+    }
+  };
+
+  const handleAppStatus = async (applicationId, status) => {
+    try {
+      await api.put(`/admin/job-applications/${applicationId}/status`, { status });
+      fetchPlacements();
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to update application status.' });
+      setTimeout(() => setMessage(null), 4000);
+    }
+  };
+
+  const exportCsv = (filename, rows) => {
+    if (!rows || rows.length === 0) {
+      setMessage({ type: 'error', text: 'No data to export.' });
+      setTimeout(() => setMessage(null), 4000);
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join(','), ...rows.map((r) => headers.map((h) => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','))];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportStudents = () => {
+    exportCsv('students-report.csv', students.map((s) => ({
+      Name: s.user?.name || '',
+      'Roll No': s.studentId,
+      Department: s.department?.name || '',
+      Course: s.course?.name || '',
+      Semester: s.semester,
+      CGPA: s.cgpa,
+    })));
+  };
+
+  const exportFaculty = () => {
+    exportCsv('faculty-report.csv', faculty.map((f) => ({
+      Name: f.user?.name || '',
+      'Employee ID': f.employeeId,
+      Department: f.department?.name || '',
+      Designation: f.designation,
+      Experience: f.experience,
+    })));
+  };
+
   useEffect(() => {
     fetchAll();
   }, []);
@@ -112,6 +216,10 @@ const AdminDashboard = ({ initialTab = 'dashboard' }) => {
       fetchEvents();
     } else if (activeTab === 'leaves') {
       fetchLeaves();
+    } else if (activeTab === 'placements') {
+      fetchPlacements();
+    } else if (activeTab === 'reports') {
+      fetchUsers();
     } else if (activeTab === 'dashboard') {
       fetchAll();
     }
@@ -799,6 +907,160 @@ const AdminDashboard = ({ initialTab = 'dashboard' }) => {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Placements & Jobs Tab */}
+        {activeTab === 'placements' && (
+          <div className="admin-section">
+            <div className="admin-section-header">
+              <h2>💼 Placements & Jobs</h2>
+              <p>Share placement information, monitor job openings and applications</p>
+            </div>
+
+            <form className="card admin-form" onSubmit={handlePlacementSubmit}>
+              <h3>Publish Placement Information</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Title *</label>
+                  <input type="text" name="title" placeholder="e.g. Campus Placement Drive" required />
+                </div>
+                <div className="form-group">
+                  <label>Company *</label>
+                  <input type="text" name="company" placeholder="e.g. Google" required />
+                </div>
+                <div className="form-group">
+                  <label>Role</label>
+                  <input type="text" name="role" placeholder="e.g. Software Engineer" />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Package</label>
+                  <input type="text" name="package" placeholder="e.g. 12 LPA" />
+                </div>
+                <div className="form-group">
+                  <label>Location</label>
+                  <input type="text" name="location" placeholder="e.g. Bangalore" />
+                </div>
+                <div className="form-group">
+                  <label>Minimum CGPA</label>
+                  <input type="number" name="minCGPA" min="0" max="10" step="0.1" placeholder="e.g. 7.0" />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Eligibility</label>
+                  <input type="text" name="eligibility" placeholder="e.g. CS/IT, No backlogs" />
+                </div>
+                <div className="form-group">
+                  <label>Application Deadline</label>
+                  <input type="date" name="deadline" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea name="description" rows={3} placeholder="Details about the role, process, documents required, etc." />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">Publish Placement Info</button>
+              </div>
+            </form>
+
+            <div className="admin-section-header" style={{ marginTop: 28 }}>
+              <h3>Placement Posts</h3>
+            </div>
+            <div className="jobs-grid">
+              {placements.length === 0 ? (
+                <div className="card"><p className="empty-message">No placement posts yet.</p></div>
+              ) : placements.map((p) => (
+                <article key={p._id} className="card job-card">
+                  <div className="section-head">
+                    <h4>{p.title}</h4>
+                    <span className="badge badge-success">{p.status}</span>
+                  </div>
+                  <p><strong>{p.company}</strong> {p.role ? `· ${p.role}` : ''}</p>
+                  <div className="meta-row">
+                    {p.location && <span>{p.location}</span>}
+                    {p.package && <span>{p.package}</span>}
+                    {p.minCGPA > 0 && <span>CGPA {p.minCGPA}+</span>}
+                  </div>
+                  {p.description && <p>{p.description}</p>}
+                  <p className="meta-row">
+                    Posted by {p.postedBy?.name || 'Admin'}
+                    {p.deadline ? ` · Deadline ${new Date(p.deadline).toLocaleDateString()}` : ''}
+                  </p>
+                  <button className="btn btn-danger small-btn" onClick={() => handleDeletePlacement(p._id)}>Delete</button>
+                </article>
+              ))}
+            </div>
+
+            <div className="admin-section-header" style={{ marginTop: 28 }}>
+              <h3>Job Applications</h3>
+              <p>Track the recruitment pipeline</p>
+            </div>
+            <div className="card table-card">
+              {jobApplications.length === 0 ? (
+                <p className="empty-message">No job applications yet.</p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr><th>Student</th><th>Job</th><th>Company</th><th>Applied</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {jobApplications.map((a) => (
+                      <tr key={a._id}>
+                        <td>{a.student?.user?.name || a.student?.name || 'Student'}</td>
+                        <td>{a.job?.title || 'Job'}</td>
+                        <td>{a.job?.company?.name || '—'}</td>
+                        <td>{new Date(a.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <select
+                            value={a.status}
+                            onChange={(e) => handleAppStatus(a._id, e.target.value)}
+                            style={{ padding: '0.35rem', borderRadius: 6, border: '1px solid #cbd5e1' }}
+                          >
+                            <option>Applied</option>
+                            <option>Shortlisted</option>
+                            <option>Interview</option>
+                            <option>Selected</option>
+                            <option>Rejected</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <div className="admin-section">
+            <div className="admin-section-header">
+              <h2>🗂 Reports & Exports</h2>
+              <p>Download institutional reports in CSV format</p>
+            </div>
+            <div className="reports-grid">
+              <div className="card">
+                <h3>Student Directory Report</h3>
+                <p>Export all students with department, course, semester and CGPA.</p>
+                <button className="btn btn-primary" onClick={exportStudents}>Export Students CSV</button>
+              </div>
+              <div className="card">
+                <h3>Faculty Directory Report</h3>
+                <p>Export all faculty with employee ID, department and designation.</p>
+                <button className="btn btn-primary" onClick={exportFaculty}>Export Faculty CSV</button>
+              </div>
+              <div className="card">
+                <h3>Institution Overview</h3>
+                <p>
+                  {stats?.totalUsers || 0} total users · {stats?.studentCount || 0} students · {stats?.facultyCount || 0} faculty · {stats?.departmentCount || 0} departments · {stats?.courseCount || 0} courses · {stats?.applicationCount || 0} job applications.
+                </p>
+              </div>
             </div>
           </div>
         )}

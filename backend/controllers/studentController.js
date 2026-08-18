@@ -10,6 +10,11 @@ const EventRegistration = require('../models/EventRegistration');
 const LeaveRequest = require('../models/LeaveRequest');
 const JobApplication = require('../models/JobApplication');
 const Notification = require('../models/Notification');
+const Schedule = require('../models/Schedule');
+const Exam = require('../models/Exam');
+const LearningMaterial = require('../models/LearningMaterial');
+const Subject = require('../models/Subject');
+const PlacementPost = require('../models/PlacementPost');
 
 // Get student dashboard data
 const getStudentDashboard = async (req, res, next) => {
@@ -53,6 +58,30 @@ const getStudentDashboard = async (req, res, next) => {
     // Fetch upcoming events
     const events = await Event.find({ date: { $gte: new Date() } }).limit(4);
 
+    // Fetch subject ids for this student
+    const studentSubjects = await Subject.find({ course: student.course });
+
+    // Fetch upcoming exams for the student's subjects
+    const upcomingExams = await Exam.countDocuments({
+      subject: { $in: studentSubjects.map((s) => s._id) },
+      examDate: { $gte: new Date() },
+      status: { $ne: 'completed' },
+    });
+
+    // Fetch placement posts
+    const placementPosts = await PlacementPost.countDocuments({ status: 'open' });
+
+    // Fetch the student's job applications
+    const jobApplications = await JobApplication.countDocuments({ student: student._id });
+
+    // Today's schedule for the student's subjects
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = days[new Date().getDay()];
+    const todaysClasses = await Schedule.countDocuments({
+      subject: { $in: studentSubjects.map((s) => s._id) },
+      dayOfWeek: today,
+    });
+
     res.status(200).json({
       student: {
         name: student.user?.name || req.user.name,
@@ -67,6 +96,10 @@ const getStudentDashboard = async (req, res, next) => {
       pendingAssignments,
       notifications: notifications.length,
       upcomingEvents: events.length,
+      upcomingExams,
+      placementPosts,
+      jobApplications,
+      todaysClasses,
     });
   } catch (error) {
     next(error);
@@ -196,6 +229,82 @@ const getStudentProfile = async (req, res, next) => {
   }
 };
 
+// Get weekly schedule for the student's subjects
+const getStudentSchedule = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const student = await Student.findOne({ user: userId }).populate('course');
+    if (!student) return res.status(404).json({ message: 'Student record not found' });
+
+    const studentSubjects = await Subject.find({ course: student.course });
+    const schedules = await Schedule.find({ subject: { $in: studentSubjects.map((s) => s._id) } })
+      .populate('subject', 'name code')
+      .populate('faculty', 'employeeId')
+      .populate({ path: 'faculty', populate: { path: 'user', select: 'name' } })
+      .sort({ dayOfWeek: 1, startTime: 1 });
+
+    res.json(schedules);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get exams for the student's subjects
+const getStudentExams = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const student = await Student.findOne({ user: userId }).populate('course');
+    if (!student) return res.status(404).json({ message: 'Student record not found' });
+
+    const studentSubjects = await Subject.find({ course: student.course });
+    const exams = await Exam.find({ subject: { $in: studentSubjects.map((s) => s._id) } })
+      .populate('subject', 'name code')
+      .populate('faculty', 'employeeId')
+      .populate({ path: 'faculty', populate: { path: 'user', select: 'name' } })
+      .sort({ examDate: 1 });
+
+    res.json(exams);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get study materials for the student's subjects
+const getStudentMaterials = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const student = await Student.findOne({ user: userId }).populate('course');
+    if (!student) return res.status(404).json({ message: 'Student record not found' });
+
+    const studentSubjects = await Subject.find({ course: student.course });
+    const materials = await LearningMaterial.find({
+      subject: { $in: studentSubjects.map((s) => s._id) },
+      visibility: 'public',
+    })
+      .populate('subject', 'name code')
+      .populate('faculty', 'employeeId')
+      .populate({ path: 'faculty', populate: { path: 'user', select: 'name' } })
+      .sort({ createdAt: -1 });
+
+    res.json(materials);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get placement posts visible to the student
+const getStudentPlacements = async (req, res, next) => {
+  try {
+    const posts = await PlacementPost.find()
+      .populate('postedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(posts);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = { 
   getStudents, 
   getStudentById, 
@@ -207,4 +316,8 @@ module.exports = {
   getNotices,
   getEvents,
   getStudentProfile,
+  getStudentSchedule,
+  getStudentExams,
+  getStudentMaterials,
+  getStudentPlacements,
 };

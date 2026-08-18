@@ -10,6 +10,10 @@ const {
   getNotices,
   getEvents,
   getStudentProfile,
+  getStudentSchedule,
+  getStudentExams,
+  getStudentMaterials,
+  getStudentPlacements,
 } = require('../controllers/studentController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -21,6 +25,10 @@ router.get('/me/profile', protect, authorize('student'), getStudentProfile);
 router.get('/me/attendance', protect, authorize('student'), getStudentAttendance);
 router.get('/me/marks', protect, authorize('student'), getStudentMarks);
 router.get('/me/assignments', protect, authorize('student'), getStudentAssignments);
+router.get('/me/schedule', protect, authorize('student'), getStudentSchedule);
+router.get('/me/exams', protect, authorize('student'), getStudentExams);
+router.get('/me/materials', protect, authorize('student'), getStudentMaterials);
+router.get('/me/placements', protect, authorize('student'), getStudentPlacements);
 router.get('/notices', protect, authorize('student', 'faculty', 'admin'), getNotices);
 router.get('/events', protect, authorize('student', 'faculty', 'admin'), getEvents);
 
