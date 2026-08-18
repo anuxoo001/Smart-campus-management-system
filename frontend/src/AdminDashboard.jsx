@@ -134,7 +134,7 @@ const AdminDashboard = ({ initialTab = 'dashboard' }) => {
         role: 'faculty',
         department: form.department.value,
         designation: form.designation.value,
-        qualification: form.qualification.value,
+        qualification: form.qualification?.value || '',
         experience: Number(form.experience.value || 0),
       });
       setGeneratedCreds(res.data.credentials);
@@ -419,6 +419,10 @@ const AdminDashboard = ({ initialTab = 'dashboard' }) => {
                   <div className="form-group">
                     <label>Experience (years)</label>
                     <input type="number" name="experience" min="0" defaultValue="0" />
+                  </div>
+                  <div className="form-group">
+                    <label>Qualification</label>
+                    <input type="text" name="qualification" placeholder="e.g., Ph.D. in Computer Science" />
                   </div>
                 </div>
                 <div className="form-row">
